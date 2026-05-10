@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Step 1: install base dependencies (curl, gpg needed to add Microsoft repo)
+# Step 1: install base dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
@@ -10,13 +10,16 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && apt-get clean
 
-# Step 2: add Microsoft repo using modern gpg method (apt-key is removed in Debian 12)
+# Step 2: add Microsoft GPG key
 RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-        | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
-    && curl -fsSL https://packages.microsoft.com/config/debian/12/prod.list \
-        | sed 's|^deb |deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg] |' \
-        > /etc/apt/sources.list.d/mssql-release.list \
-    && apt-get update \
+        | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+
+# Step 3: write the repo entry directly (avoids sed formatting issues)
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
+        > /etc/apt/sources.list.d/mssql-release.list
+
+# Step 4: install ODBC driver
+RUN apt-get update \
     && ACCEPT_EULA=Y apt-get install -y msodbcsql18 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
