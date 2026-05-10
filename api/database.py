@@ -15,16 +15,21 @@ DB_NAME = os.getenv("DB_NAME", "SupportOpsDB")
 DB_USER = os.getenv("DB_USER", "sa")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
-# Build the connection string for SQL Server via pyodbc
 CONNECTION_STRING = (
     f"mssql+pyodbc://{DB_USER}:{DB_PASSWORD}@{DB_SERVER}/{DB_NAME}"
     f"?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
 )
 
+# Connection string to 'master' — used only for connectivity checks and DB creation
+MASTER_CONNECTION_STRING = (
+    f"mssql+pyodbc://{DB_USER}:{DB_PASSWORD}@{DB_SERVER}/master"
+    f"?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+)
+
 engine = create_engine(
     CONNECTION_STRING,
-    echo=False,          # Set to True to log all SQL queries (useful for debugging)
-    pool_pre_ping=True,  # Verify connection health before using from pool
+    echo=False,
+    pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
 )
@@ -46,10 +51,15 @@ def get_db():
 
 
 def test_connection() -> bool:
-    """Quick connectivity check. Returns True if SQL Server is reachable."""
+    """
+    Checks connectivity against 'master' so it works even before
+    SupportOpsDB has been created by migrate.py.
+    """
     try:
-        with engine.connect() as conn:
+        master_engine = create_engine(MASTER_CONNECTION_STRING)
+        with master_engine.connect() as conn:
             conn.execute(text("SELECT 1"))
+        master_engine.dispose()
         return True
     except Exception as e:
         print(f"[DB] Connection failed: {e}")
