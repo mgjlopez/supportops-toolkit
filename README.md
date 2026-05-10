@@ -163,6 +163,8 @@ This toolkit replicates patterns used in enterprise support environments (Servic
 - **SLA awareness** — a core concept in any support role
 - **Docker fluency** — run anywhere, no environment excuses
 
+I wrote this project to learn the usage of Docker and improve my knowledge of Python
+
 ---
 
 ## 📄 License
