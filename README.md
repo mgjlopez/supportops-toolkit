@@ -1,5 +1,11 @@
 # 🛠️ SupportOps Toolkit
 
+![CI](https://github.com/YOUR_USERNAME/supportops-toolkit/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.12-blue?logo=python)
+![SQL Server](https://img.shields.io/badge/SQL_Server-2022-red?logo=microsoftsqlserver)
+![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 > A production-style IT support automation system built with Python, FastAPI, SQL Server, and Docker.  
 > Simulates real-world workflows: auto-ticketing, SLA escalation, health monitoring, and reporting.
 
@@ -25,17 +31,17 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  Docker Network                 │
+│                  Docker Network                  │
 │                                                 │
 │  ┌─────────────┐      ┌──────────────────────┐  │
 │  │  SQL Server │◄─────│   FastAPI (port 8000)│  │
 │  │  Developer  │      │   REST API + Logic   │  │
 │  │  port 1433  │      └──────────┬───────────┘  │
-│  └─────────────┘                 │              │
-│                         ┌────────▼────────┐     │
-│                         │  Python Scripts │     │
-│                         │  (schedulers)   │     │
-│                         └─────────────────┘     │
+│  └─────────────┘                 │               │
+│                         ┌────────▼────────┐      │
+│                         │  Python Scripts │      │
+│                         │  (schedulers)   │      │
+│                         └─────────────────┘      │
 └─────────────────────────────────────────────────┘
 ```
 
