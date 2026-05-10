@@ -1,0 +1,56 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: supportops-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "${DB_PASSWORD}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${DB_PASSWORD}" -Q "SELECT 1" -C
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  api:
+    build: .
+    container_name: supportops-api
+    environment:
+      DB_SERVER: sqlserver
+      DB_NAME: "${DB_NAME}"
+      DB_USER: sa
+      DB_PASSWORD: "${DB_PASSWORD}"
+      APP_ENV: development
+    ports:
+      - "8000:8000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  scheduler:
+    build: .
+    container_name: supportops-scheduler
+    environment:
+      DB_SERVER: sqlserver
+      DB_NAME: "${DB_NAME}"
+      DB_USER: sa
+      DB_PASSWORD: "${DB_PASSWORD}"
+      MONITOR_INTERVAL: "60"
+      ESCALATION_INTERVAL: "120"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: python automation/scheduler.py
+
+volumes:
+  sqlserver_data:
