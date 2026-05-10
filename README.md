@@ -14,7 +14,7 @@ SupportOps Toolkit automates the repetitive work of a Technical Support Engineer
 | 🔍 **Health Monitor** | Polls system/service health and logs metrics to SQL Server |
 | 🎫 **Auto-Ticketing** | Detects incidents and opens tickets automatically |
 | ⏫ **Escalation Engine** | Escalates tickets that breach SLA thresholds |
-| 🌐 **REST API** | FastAPI interface to manage tickets (like a mini ServiceNow) |
+| 🌐 **REST API** | FastAPI interface to manage tickets (like a mini Ticketing System) |
 | 📊 **Reports** | SQL-based reports: resolution time, ticket volume, SLA compliance |
 
 Everything runs locally via **Docker Compose** — no paid cloud services needed.
@@ -25,17 +25,17 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  Docker Network                  │
+│                  Docker Network                 │
 │                                                 │
 │  ┌─────────────┐      ┌──────────────────────┐  │
 │  │  SQL Server │◄─────│   FastAPI (port 8000)│  │
 │  │  Developer  │      │   REST API + Logic   │  │
 │  │  port 1433  │      └──────────┬───────────┘  │
-│  └─────────────┘                 │               │
-│                         ┌────────▼────────┐      │
-│                         │  Python Scripts │      │
-│                         │  (schedulers)   │      │
-│                         └─────────────────┘      │
+│  └─────────────┘                 │              │
+│                         ┌────────▼────────┐     │
+│                         │  Python Scripts │     │
+│                         │  (schedulers)   │     │
+│                         └─────────────────┘     │
 └─────────────────────────────────────────────────┘
 ```
 
