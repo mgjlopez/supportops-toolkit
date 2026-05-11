@@ -1,6 +1,8 @@
 """
 test_tickets.py — Integration tests for the tickets API.
-Tests create, read, update, filter, and delete operations.
+
+Uses SQLite in-memory for speed. Lookup tables are seeded in the
+fixture so tests work without SQL Server.
 
 Run with:
     docker compose exec api pytest tests/ -v
@@ -11,10 +13,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from api.database import Base, get_db
 from api.main import app
+from api.database import Base, get_db
+from api.models import TicketPriority, TicketStatus, TicketCategory, TicketSource
 
-# Use an in-memory SQLite DB for tests (no SQL Server required for unit tests)
 TEST_DB_URL = "sqlite:///./test_supportops.db"
 
 engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
@@ -29,9 +31,25 @@ def override_get_db():
         db.close()
 
 
+def _seed_lookups(db):
+    """Populate lookup tables so the router can resolve IDs."""
+    for name in ["critical", "high", "medium", "low"]:
+        db.add(TicketPriority(name=name))
+    for name in ["open", "in_progress", "escalated", "resolved", "closed"]:
+        db.add(TicketStatus(name=name))
+    for name in ["hardware", "software", "network", "access", "performance", "security", "other"]:
+        db.add(TicketCategory(name=name))
+    for name in ["manual", "auto", "escalation"]:
+        db.add(TicketSource(name=name))
+    db.commit()
+
+
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    db = TestingSession()
+    _seed_lookups(db)
+    db.close()
     app.dependency_overrides[get_db] = override_get_db
     yield
     Base.metadata.drop_all(bind=engine)
@@ -86,17 +104,25 @@ class TestCreateTicket:
         data = resp.json()
         assert data["assignee"] == "network.team"
         assert data["source"] == "auto"
+        assert data["priority"] == "critical"
 
     def test_create_ticket_title_too_short(self, client):
         resp = client.post("/tickets", json={"title": "Hi"})
-        assert resp.status_code == 422  # Validation error
+        assert resp.status_code == 422
 
     def test_create_ticket_invalid_priority(self, client):
         resp = client.post("/tickets", json={
             "title": "Valid title here",
-            "priority": "super_urgent",  # Not a valid enum value
+            "priority": "super_urgent",
         })
-        assert resp.status_code == 422
+        assert resp.status_code == 400  # Now a 400 from _lookup, not 422
+
+    def test_create_ticket_invalid_category(self, client):
+        resp = client.post("/tickets", json={
+            "title": "Valid title here",
+            "category": "unknown_category",
+        })
+        assert resp.status_code == 400
 
 
 # ── READ ──────────────────────────────────────────────────────────────────────
@@ -128,8 +154,8 @@ class TestReadTickets:
         assert all(t["status"] == "open" for t in resp.json())
 
     def test_filter_by_priority(self, client):
-        client.post("/tickets", json={"title": "Critical network outage now", "priority": "critical"})
-        client.post("/tickets", json={"title": "Low priority cleanup task", "priority": "low"})
+        client.post("/tickets", json={"title": "Critical network outage now", "priority": "critical", "category": "network"})
+        client.post("/tickets", json={"title": "Low priority cleanup task", "priority": "low", "category": "other"})
 
         resp = client.get("/tickets?priority=critical")
         assert resp.status_code == 200
@@ -157,6 +183,11 @@ class TestUpdateTicket:
         assert resp.status_code == 200
         assert resp.json()["assignee"] == "john.doe"
 
+    def test_update_invalid_status(self, client, sample_ticket):
+        tid = sample_ticket["id"]
+        resp = client.patch(f"/tickets/{tid}", json={"status": "flying"})
+        assert resp.status_code == 400
+
     def test_update_nonexistent_ticket(self, client):
         resp = client.patch("/tickets/99999", json={"status": "resolved"})
         assert resp.status_code == 404
@@ -169,8 +200,6 @@ class TestDeleteTicket:
         tid = sample_ticket["id"]
         resp = client.delete(f"/tickets/{tid}")
         assert resp.status_code == 204
-
-        # Confirm it's gone
         resp = client.get(f"/tickets/{tid}")
         assert resp.status_code == 404
 
