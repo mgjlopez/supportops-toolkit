@@ -56,7 +56,7 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 ### 1. Clone and start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/supportops-toolkit.git
+git clone https://github.com/mgjlopez/supportops-toolkit.git
 cd supportops-toolkit
 cp .env.example .env
 docker compose up -d
