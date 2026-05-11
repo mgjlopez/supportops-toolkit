@@ -4,11 +4,11 @@ Keeps API contracts separate from the database ORM models.
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
-from api.models import Priority, TicketStatus, TicketCategory
-
+from api.models import Priority, TicketCategory, TicketStatus
 
 # ── Ticket Schemas ──────────────────────────────────────────────────────────
 

@@ -14,9 +14,9 @@ SLA thresholds (response time before first escalation):
   low      → 24 hours
 """
 
+import logging
 import os
 import sys
-import logging
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

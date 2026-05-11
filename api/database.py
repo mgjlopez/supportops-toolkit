@@ -4,9 +4,10 @@ Uses pyodbc + ODBC Driver 18 for SQL Server.
 """
 
 import os
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 load_dotenv()
 

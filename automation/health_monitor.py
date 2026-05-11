@@ -11,12 +11,13 @@ When a check fails, it automatically creates a ticket via the REST API
 (so you can see auto-ticketing in action end-to-end).
 """
 
+import logging
 import os
+import socket
+from datetime import datetime
+
 import httpx
 import psutil
-import socket
-import logging
-from datetime import datetime
 
 logging.basicConfig(
     level=logging.INFO,

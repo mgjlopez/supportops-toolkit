@@ -7,17 +7,17 @@ Configure intervals via env vars:
   ESCALATION_INTERVAL — seconds between escalation runs (default: 120)
 """
 
+import logging
 import os
 import sys
 import time
-import logging
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import schedule
 
-from automation.health_monitor import run_all_checks
 from automation.escalation_engine import check_and_escalate
+from automation.health_monitor import run_all_checks
 
 logging.basicConfig(
     level=logging.INFO,

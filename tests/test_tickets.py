@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from api.main import app
 from api.database import Base, get_db
+from api.main import app
 
 # Use an in-memory SQLite DB for tests (no SQL Server required for unit tests)
 TEST_DB_URL = "sqlite:///./test_supportops.db"

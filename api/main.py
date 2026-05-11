@@ -3,12 +3,13 @@ main.py — FastAPI application entrypoint.
 Registers routers, startup events, and the health check endpoint.
 """
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 from api.database import test_connection
-from api.routers import tickets, reports
+from api.routers import reports, tickets
 
 
 @asynccontextmanager

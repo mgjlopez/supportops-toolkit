@@ -6,15 +6,15 @@ Usage:
     docker compose exec api python db/migrate.py
 """
 
+import os
 import sys
 import time
-import os
 
 # Allow running from project root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from api.database import engine, Base, test_connection
 import api.models  # noqa: F401 — registers all models with Base
+from api.database import Base, engine, test_connection
 
 
 def wait_for_db(retries=15, delay=5):
@@ -34,8 +34,9 @@ def create_database_if_not_exists():
     SQL Server doesn't auto-create the database like SQLite does.
     We connect to 'master' first and create SupportOpsDB if needed.
     """
-    from sqlalchemy import create_engine, text
     import os
+
+    from sqlalchemy import create_engine, text
 
     db_name = os.getenv("DB_NAME", "SupportOpsDB")
     server = os.getenv("DB_SERVER", "localhost")

@@ -4,13 +4,14 @@ Covers the full lifecycle: create, read, update, close, and audit trail.
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from api.database import get_db
 from api.models import Ticket, TicketEvent, TicketStatus
-from api.schemas import TicketCreate, TicketUpdate, TicketOut
+from api.schemas import TicketCreate, TicketOut, TicketUpdate
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 

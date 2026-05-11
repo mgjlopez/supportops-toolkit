@@ -4,12 +4,13 @@ Demonstrates real SQL skills: aggregation, DATEDIFF, GROUP BY, CTEs.
 """
 
 from typing import List
+
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from api.database import get_db
-from api.schemas import TicketSummary, SLAReport, ResolutionReport
+from api.schemas import ResolutionReport, SLAReport, TicketSummary
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 

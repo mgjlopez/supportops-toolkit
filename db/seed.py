@@ -6,15 +6,15 @@ Usage:
     docker compose exec api python db/seed.py
 """
 
-import sys
 import os
 import random
+import sys
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from api.database import SessionLocal
-from api.models import Ticket, TicketEvent, HealthCheck, Priority, TicketStatus, TicketCategory
+from api.models import HealthCheck, Priority, Ticket, TicketCategory, TicketEvent, TicketStatus
 
 SAMPLE_TICKETS = [
     {
