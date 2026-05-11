@@ -6,7 +6,7 @@ tables by name, so the API still accepts plain strings ("high", "open")
 while the database stores normalized foreign keys.
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -105,7 +105,7 @@ def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(g
         new_status = changes.pop("status")
         ticket.status_id = _lookup(db, TicketStatus, new_status, "status")
         if new_status == "resolved" and not ticket.resolved_at:
-            ticket.resolved_at = datetime.utcnow()
+            ticket.resolved_at = datetime.now(UTC)
     if "category" in changes:
         ticket.category_id = _lookup(db, TicketCategory, changes.pop("category"), "category")
     if "source" in changes:
@@ -114,7 +114,7 @@ def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(g
     for field, value in changes.items():
         setattr(ticket, field, value)
 
-    ticket.updated_at = datetime.utcnow()
+    ticket.updated_at = datetime.now(UTC)
     _log_event(db, ticket.id, "updated", f"Fields updated: {', '.join(payload.model_dump(exclude_unset=True).keys())}")
     db.commit()
     db.refresh(ticket)
