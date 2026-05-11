@@ -1,69 +1,48 @@
 """
 models.py — SQLAlchemy ORM models.
 
-Priorities, statuses, categories and sources are now normalized into
-their own lookup tables. Tickets reference them via foreign keys,
-which enforces valid values at the database level.
+Priorities, statuses, categories and sources are normalized into
+lookup tables. Tickets reference them via foreign keys.
+
+The convenience properties use a p_ prefix to avoid conflicting
+with SQLAlchemy's internal attribute handling.
 """
 
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, DateTime, Text,
-    Boolean, Float, ForeignKey, UniqueConstraint
+    Boolean, Float, ForeignKey,
 )
 from sqlalchemy.orm import relationship
 
 from api.database import Base
 
 
-# ── Lookup tables ────────────────────────────────────────────────────────────
+# ── Lookup tables ─────────────────────────────────────────────────────────────
 
 class TicketPriority(Base):
     __tablename__ = "ticket_priorities"
-
     id   = Column(Integer, primary_key=True)
-    name = Column(String(50), nullable=False, unique=True)  # critical, high, medium, low
-
+    name = Column(String(50), nullable=False, unique=True)
     tickets = relationship("Ticket", back_populates="priority_ref")
-
-    def __repr__(self):
-        return f"<Priority {self.name}>"
-
 
 class TicketStatus(Base):
     __tablename__ = "ticket_statuses"
-
     id   = Column(Integer, primary_key=True)
-    name = Column(String(50), nullable=False, unique=True)  # open, in_progress, escalated, resolved, closed
-
+    name = Column(String(50), nullable=False, unique=True)
     tickets = relationship("Ticket", back_populates="status_ref")
-
-    def __repr__(self):
-        return f"<Status {self.name}>"
-
 
 class TicketCategory(Base):
     __tablename__ = "ticket_categories"
-
     id   = Column(Integer, primary_key=True)
-    name = Column(String(50), nullable=False, unique=True)  # hardware, software, network, ...
-
+    name = Column(String(50), nullable=False, unique=True)
     tickets = relationship("Ticket", back_populates="category_ref")
-
-    def __repr__(self):
-        return f"<Category {self.name}>"
-
 
 class TicketSource(Base):
     __tablename__ = "ticket_sources"
-
     id   = Column(Integer, primary_key=True)
-    name = Column(String(50), nullable=False, unique=True)  # manual, auto, escalation
-
+    name = Column(String(50), nullable=False, unique=True)
     tickets = relationship("Ticket", back_populates="source_ref")
-
-    def __repr__(self):
-        return f"<Source {self.name}>"
 
 
 # ── Main tables ───────────────────────────────────────────────────────────────
@@ -83,11 +62,11 @@ class Ticket(Base):
     updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     resolved_at      = Column(DateTime, nullable=True)
 
-    # Foreign keys to lookup tables
-    priority_id  = Column(Integer, ForeignKey("ticket_priorities.id"), nullable=False)
-    status_id    = Column(Integer, ForeignKey("ticket_statuses.id"),   nullable=False)
-    category_id  = Column(Integer, ForeignKey("ticket_categories.id"), nullable=False)
-    source_id    = Column(Integer, ForeignKey("ticket_sources.id"),    nullable=False)
+    # Foreign keys
+    priority_id = Column(Integer, ForeignKey("ticket_priorities.id"), nullable=False)
+    status_id   = Column(Integer, ForeignKey("ticket_statuses.id"),   nullable=False)
+    category_id = Column(Integer, ForeignKey("ticket_categories.id"), nullable=False)
+    source_id   = Column(Integer, ForeignKey("ticket_sources.id"),    nullable=False)
 
     # Relationships
     priority_ref = relationship("TicketPriority", back_populates="tickets")
@@ -96,41 +75,19 @@ class Ticket(Base):
     source_ref   = relationship("TicketSource",   back_populates="tickets")
     events       = relationship("TicketEvent", back_populates="ticket", cascade="all, delete")
 
-    # Convenience properties so the rest of the code can still do ticket.priority
-    @property
-    def priority(self):
-        return self.priority_ref.name if self.priority_ref else None
-
-    @property
-    def status(self):
-        return self.status_ref.name if self.status_ref else None
-
-    @property
-    def category(self):
-        return self.category_ref.name if self.category_ref else None
-
-    @property
-    def source(self):
-        return self.source_ref.name if self.source_ref else None
-
 
 class TicketEvent(Base):
-    """Audit log — every change to a ticket is recorded here."""
     __tablename__ = "ticket_events"
-
     id         = Column(Integer, primary_key=True, index=True)
     ticket_id  = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     event_type = Column(String(50), nullable=False)
     message    = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-
-    ticket = relationship("Ticket", back_populates="events")
+    ticket     = relationship("Ticket", back_populates="events")
 
 
 class HealthCheck(Base):
-    """Log of every health check run by the monitor."""
     __tablename__ = "health_checks"
-
     id         = Column(Integer, primary_key=True, index=True)
     target     = Column(String(255), nullable=False)
     check_type = Column(String(50),  nullable=False)
