@@ -28,7 +28,7 @@
 1. Identify the consuming process:
    ```sql
    -- View open CPU tickets
-   SELECT id, title, created_at, assignee
+   SELECT tickets.id, title, created_at, assignee
    FROM tickets
    JOIN ticket_categories  ON ticket_categories.id  = tickets.category_id
    JOIN ticket_statuses    ON ticket_statuses.id     = tickets.status_id
