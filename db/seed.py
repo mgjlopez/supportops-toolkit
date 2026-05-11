@@ -11,7 +11,7 @@ Usage:
 import sys
 import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -123,7 +123,7 @@ def seed():
             return
 
         print("🌱 Seeding sample tickets...")
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         for data in SAMPLE_TICKETS:
             age               = data.pop("age_hours", 0)

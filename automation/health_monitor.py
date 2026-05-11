@@ -11,13 +11,12 @@ When a check fails, it automatically creates a ticket via the REST API
 (so you can see auto-ticketing in action end-to-end).
 """
 
-import logging
 import os
-import socket
-from datetime import datetime
-
 import httpx
 import psutil
+import socket
+import logging
+from datetime import datetime, UTC
 
 logging.basicConfig(
     level=logging.INFO,
@@ -111,7 +110,7 @@ def check_http_endpoints():
             if key not in _active_incidents:
                 tid = _create_ticket(
                     title=f"HTTP endpoint down: {url}",
-                    description=f"Health monitor detected: {msg}\nTime: {datetime.utcnow().isoformat()}",
+                    description=f"Health monitor detected: {msg}\nTime: {datetime.now(UTC).isoformat()}",
                     priority="high",
                     category="network",
                 )
@@ -166,7 +165,7 @@ def check_cpu_usage():
         if key not in _active_incidents:
             tid = _create_ticket(
                 title=f"High CPU usage detected: {pct:.1f}%",
-                description=f"{msg}\nTime: {datetime.utcnow().isoformat()}",
+                description=f"{msg}\nTime: {datetime.now(UTC).isoformat()}",
                 priority="critical" if pct >= 95 else "high",
                 category="performance",
             )

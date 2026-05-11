@@ -8,7 +8,7 @@ The convenience properties use a p_ prefix to avoid conflicting
 with SQLAlchemy's internal attribute handling.
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import (
     Column, Integer, String, DateTime, Text,
     Boolean, Float, ForeignKey,
@@ -58,8 +58,8 @@ class Ticket(Base):
     escalated        = Column(Boolean, default=False)
     escalation_count = Column(Integer, default=0)
     sla_breached     = Column(Boolean, default=False)
-    created_at       = Column(DateTime, default=datetime.utcnow)
-    updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at       = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at       = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     resolved_at      = Column(DateTime, nullable=True)
 
     # Foreign keys
@@ -82,7 +82,7 @@ class TicketEvent(Base):
     ticket_id  = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     event_type = Column(String(50), nullable=False)
     message    = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     ticket     = relationship("Ticket", back_populates="events")
 
 
@@ -95,4 +95,4 @@ class HealthCheck(Base):
     value      = Column(Float,       nullable=True)
     message    = Column(String(500), nullable=True)
     ticket_id  = Column(Integer, ForeignKey("tickets.id"), nullable=True)
-    checked_at = Column(DateTime, default=datetime.utcnow)
+    checked_at = Column(DateTime, default=lambda: datetime.now(UTC))

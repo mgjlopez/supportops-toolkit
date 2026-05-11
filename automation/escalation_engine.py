@@ -14,10 +14,10 @@ SLA thresholds (response time before first escalation):
   low      → 24 hours
 """
 
-import logging
 import os
 import sys
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timedelta, UTC
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -49,7 +49,7 @@ def check_and_escalate():
     Queries all open/in-progress tickets and escalates those that have breached SLA.
     """
     db = SessionLocal()
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     escalated_count = 0
     breached_count = 0
 
