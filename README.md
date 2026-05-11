@@ -1,7 +1,7 @@
 # 🛠️ SupportOps Toolkit
 
 ![CI](https://github.com/mgjlopez/supportops-toolkit/actions/workflows/ci.yml/badge.svg)
-![Python](https://img.shields.io/badge/python-3.14-blue?logo=python)
+![Python](https://img.shields.io/badge/python-3.12-blue?logo=python)
 ![SQL Server](https://img.shields.io/badge/SQL_Server-2025-red?logo=microsoftsqlserver)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -31,17 +31,17 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  Docker Network                  │
+│                  Docker Network                 │
 │                                                 │
 │  ┌─────────────┐      ┌──────────────────────┐  │
 │  │  SQL Server │◄─────│   FastAPI (port 8000)│  │
 │  │  Developer  │      │   REST API + Logic   │  │
 │  │  port 1433  │      └──────────┬───────────┘  │
-│  └─────────────┘                 │               │
-│                         ┌────────▼────────┐      │
-│                         │  Python Scripts │      │
-│                         │  (schedulers)   │      │
-│                         └─────────────────┘      │
+│  └─────────────┘                 │              │
+│                         ┌────────▼────────┐     │
+│                         │  Python Scripts │     │
+│                         │  (schedulers)   │     │
+│                         └─────────────────┘     │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -56,7 +56,7 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 ### 1. Clone and start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/supportops-toolkit.git
+git clone https://github.com/mgjlopez/supportops-toolkit.git
 cd supportops-toolkit
 cp .env.example .env
 docker compose up -d
