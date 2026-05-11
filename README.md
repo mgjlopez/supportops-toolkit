@@ -31,17 +31,17 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  Docker Network                  │
+│                  Docker Network                 │
 │                                                 │
 │  ┌─────────────┐      ┌──────────────────────┐  │
 │  │  SQL Server │◄─────│   FastAPI (port 8000)│  │
 │  │  Developer  │      │   REST API + Logic   │  │
 │  │  port 1433  │      └──────────┬───────────┘  │
-│  └─────────────┘                 │               │
-│                         ┌────────▼────────┐      │
-│                         │  Python Scripts │      │
-│                         │  (schedulers)   │      │
-│                         └─────────────────┘      │
+│  └─────────────┘                 │              │
+│                         ┌────────▼────────┐     │
+│                         │  Python Scripts │     │
+│                         │  (schedulers)   │     │
+│                         └─────────────────┘     │
 └─────────────────────────────────────────────────┘
 ```
 
