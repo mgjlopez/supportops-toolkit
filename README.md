@@ -1,7 +1,7 @@
 # 🛠️ SupportOps Toolkit
 
 ![CI](https://github.com/mgjlopez/supportops-toolkit/actions/workflows/ci.yml/badge.svg)
-![Python](https://img.shields.io/badge/python-3.14-blue?logo=python)
+![Python](https://img.shields.io/badge/python-3.12-blue?logo=python)
 ![SQL Server](https://img.shields.io/badge/SQL_Server-2025-red?logo=microsoftsqlserver)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)
 ![License](https://img.shields.io/badge/license-MIT-green)
