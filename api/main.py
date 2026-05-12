@@ -1,20 +1,20 @@
 """
 main.py — FastAPI application entrypoint.
-Registers routers, startup events, and the health check endpoint.
 """
 
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.database import test_connection
+from api.metrics import collect_metrics
 from api.routers import reports, tickets
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Run startup checks before accepting traffic."""
     print("[SupportOps] Starting up...")
     if test_connection():
         print("[SupportOps] ✅ SQL Server connection OK")
@@ -36,11 +36,20 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Fine for local dev; restrict in production
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ── Prometheus metrics ────────────────────────────────────────────────────────
+# Instruments all FastAPI routes automatically (latency, request count, etc.)
+# and calls collect_metrics() on every scrape to update our custom gauges.
+Instrumentator(
+    should_group_status_codes=True,
+    should_ignore_untemplated=True,
+).add(lambda _: collect_metrics()).instrument(app).expose(app)
+
+# ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(tickets.router)
 app.include_router(reports.router)
 

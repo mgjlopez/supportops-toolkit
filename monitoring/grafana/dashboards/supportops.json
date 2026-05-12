@@ -1,0 +1,163 @@
+{
+  "title": "SupportOps Dashboard",
+  "uid": "supportops-main",
+  "version": 1,
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Open Tickets",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "supportops_tickets_total{status=\"open\"}",
+          "legendFormat": "Open"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Escalated Tickets",
+      "type": "stat",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "supportops_tickets_total{status=\"escalated\"}",
+          "legendFormat": "Escalated"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "SLA Breached Tickets",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "supportops_sla_breached_total",
+          "legendFormat": "Breached"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Critical Health Checks",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "supportops_health_checks_total{status=\"critical\"}",
+          "legendFormat": "Critical"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Tickets by Priority",
+      "type": "piechart",
+      "gridPos": { "x": 0, "y": 4, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "supportops_tickets_by_priority",
+          "legendFormat": "{{priority}}"
+        }
+      ],
+      "options": { "pieType": "donut" }
+    },
+    {
+      "id": 6,
+      "title": "Tickets by Category",
+      "type": "piechart",
+      "gridPos": { "x": 8, "y": 4, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "supportops_tickets_by_category",
+          "legendFormat": "{{category}}"
+        }
+      ],
+      "options": { "pieType": "donut" }
+    },
+    {
+      "id": 7,
+      "title": "Ticket Volume Over Time",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 16, "h": 8 },
+      "targets": [
+        {
+          "expr": "supportops_tickets_total",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 8,
+      "title": "Health Check Status",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 20, "w": 16, "h": 8 },
+      "targets": [
+        {
+          "expr": "supportops_health_checks_total",
+          "legendFormat": "{{check_type}} - {{status}}"
+        }
+      ]
+    }
+  ],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {}
+}
