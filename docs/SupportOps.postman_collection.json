@@ -1,0 +1,392 @@
+{
+  "info": {
+    "name": "SupportOps Toolkit",
+    "description": "Complete API collection for the SupportOps Toolkit. Covers ticket management, reporting, and health checks.\n\nSet the `base_url` variable to `http://localhost:8000` before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000", "type": "string" },
+    { "key": "ticket_id", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health",
+            "description": "Verifies the API and database are reachable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('API is ok', () => pm.expect(pm.response.json().api).to.eql('ok'));",
+                  "pm.test('DB is ok',  () => pm.expect(pm.response.json().database).to.eql('ok'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Prometheus Metrics",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/metrics",
+            "description": "Returns raw Prometheus metrics scraped by Grafana."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Contains supportops metrics', () => pm.expect(pm.response.text()).to.include('supportops_tickets_total'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "item": [
+        {
+          "name": "List all tickets",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/tickets",
+              "host": ["{{base_url}}"],
+              "path": ["tickets"]
+            },
+            "description": "Returns all tickets ordered by creation date."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List tickets — filter by status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/tickets?status=open",
+              "host": ["{{base_url}}"],
+              "path": ["tickets"],
+              "query": [{ "key": "status", "value": "open" }]
+            },
+            "description": "Filter tickets by status. Valid values: open, in_progress, escalated, resolved, closed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All tickets are open', () => {",
+                  "  pm.response.json().forEach(t => pm.expect(t.status).to.eql('open'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List tickets — filter by priority",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/tickets?priority=critical",
+              "host": ["{{base_url}}"],
+              "path": ["tickets"],
+              "query": [{ "key": "priority", "value": "critical" }]
+            },
+            "description": "Filter by priority. Valid values: critical, high, medium, low."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All tickets are critical', () => {",
+                  "  pm.response.json().forEach(t => pm.expect(t.priority).to.eql('critical'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create ticket — manual",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/tickets",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"VPN not connecting for remote user\",\n  \"description\": \"User reports VPN client fails at auth step since yesterday morning.\",\n  \"priority\": \"high\",\n  \"category\": \"network\",\n  \"assignee\": \"network.team\",\n  \"reporter\": \"john.doe\",\n  \"source\": \"manual\"\n}"
+            },
+            "description": "Creates a ticket manually. Status defaults to 'open'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const ticket = pm.response.json();",
+                  "pm.test('Has ID',           () => pm.expect(ticket.id).to.be.a('number'));",
+                  "pm.test('Status is open',   () => pm.expect(ticket.status).to.eql('open'));",
+                  "pm.test('Priority correct', () => pm.expect(ticket.priority).to.eql('high'));",
+                  "pm.collectionVariables.set('ticket_id', ticket.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create ticket — auto (from monitor)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/tickets",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Disk usage on FILESERVER01 at 92%\",\n  \"description\": \"Automated alert: disk C: at 92.1%. Threshold is 85%.\",\n  \"priority\": \"critical\",\n  \"category\": \"performance\",\n  \"reporter\": \"health_monitor\",\n  \"source\": \"auto\"\n}"
+            },
+            "description": "Simulates a ticket created by the health monitor."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201',      () => pm.response.to.have.status(201));",
+                  "pm.test('Source is auto',  () => pm.expect(pm.response.json().source).to.eql('auto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create ticket — invalid priority (expect 400)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/tickets",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Testing invalid priority value\",\n  \"priority\": \"super_urgent\"\n}"
+            },
+            "description": "Demonstrates that invalid lookup values return a 400 with a descriptive error."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400',         () => pm.response.to.have.status(400));",
+                  "pm.test('Error mentions valid values', () => pm.expect(pm.response.json().detail).to.include('Valid values'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get ticket by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/tickets/{{ticket_id}}",
+            "description": "Returns a single ticket with its full audit trail."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has events', () => pm.expect(pm.response.json().events).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update ticket — assign and change status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/tickets/{{ticket_id}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"assignee\": \"sysadmin1\"\n}"
+            },
+            "description": "Partial update — only the provided fields are changed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200',           () => pm.response.to.have.status(200));",
+                  "pm.test('Status updated',        () => pm.expect(pm.response.json().status).to.eql('in_progress'));",
+                  "pm.test('Assignee updated',      () => pm.expect(pm.response.json().assignee).to.eql('sysadmin1'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update ticket — resolve",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/tickets/{{ticket_id}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"resolved\"\n}"
+            },
+            "description": "Resolving a ticket auto-sets resolved_at timestamp."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200',          () => pm.response.to.have.status(200));",
+                  "pm.test('Status is resolved',  () => pm.expect(pm.response.json().status).to.eql('resolved'));",
+                  "pm.test('resolved_at is set',  () => pm.expect(pm.response.json().resolved_at).to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete ticket",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/tickets/{{ticket_id}}",
+            "description": "Deletes a ticket and all its audit events."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Summary — tickets by category",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/reports/summary",
+            "description": "Returns ticket volume grouped by category with open/resolved/escalated breakdown."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200',    () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('Has category field', () => {",
+                  "  if (pm.response.json().length > 0)",
+                  "    pm.expect(pm.response.json()[0]).to.have.property('category');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SLA compliance by priority",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/reports/sla",
+            "description": "Returns SLA compliance rate per priority level."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Compliance rate is between 0 and 1', () => {",
+                  "  pm.response.json().forEach(r => {",
+                  "    pm.expect(r.compliance_rate).to.be.within(0, 1);",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Average resolution time",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/reports/resolution",
+            "description": "Returns avg/min/max resolution time in hours, grouped by priority."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health check log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/reports/health-checks?limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["reports", "health-checks"],
+              "query": [{ "key": "limit", "value": "20" }]
+            },
+            "description": "Returns the most recent health check results from the monitor."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
