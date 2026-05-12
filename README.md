@@ -34,7 +34,7 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 ┌──────────────────────────────────────────────────────────────────┐
 │                        Docker Network                            │
 │                                                                  │
-│  ┌─────────────┐      ┌──────────────────────┐                   │
+│  ┌─────────────┐      ┌──────────────────────┐                  │
 │  │  SQL Server │◄─────│   FastAPI (port 8000) │                  │
 │  │    2025     │      │   REST API + Logic    │                  │
 │  │  port 1433  │      └──────────┬────────────┘                  │
@@ -44,10 +44,10 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 │                         │  (schedulers)   │                      │
 │                         └────────┬────────┘                      │
 │                                  │ /metrics                      │
-│                         ┌────────▼────────┐    ┌─────────────┐   │
-│                         │   Prometheus    │───►│   Grafana   │   │
-│                         │   port 9090     │    │  port 3000  │   │
-│                         └─────────────────┘    └─────────────┘   │
+│                         ┌────────▼────────┐    ┌─────────────┐  │
+│                         │   Prometheus    │───►│   Grafana   │  │
+│                         │   port 9090     │    │  port 3000  │  │
+│                         └─────────────────┘    └─────────────┘  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -225,10 +225,59 @@ This toolkit replicates patterns used in enterprise support environments (Servic
 - **Observability** — Prometheus metrics and Grafana dashboards like production environments use
 - **Docker fluency** — full stack runs with a single `docker compose up`
 
-I wrote this project to deepen my knowledge of Docker, Python, and infrastructure observability as part of my journey toward advancing in my Technical Support Engineer role.
+I wrote this project to deepen my knowledge of Docker, Python, and infrastructure observability as part of my journey toward a remote Technical Support Engineer role.
 
 ---
 
 ## 📄 License
 
 MIT — use freely, attribution appreciated.
+
+---
+
+## 🔬 Structured Logging
+
+All services emit **JSON-formatted logs** compatible with log aggregators like Datadog, Splunk, ELK, and CloudWatch.
+
+Every log line is a structured object:
+
+```json
+{"timestamp": "2026-05-12T10:00:00Z", "level": "INFO", "module": "api.routers.tickets",
+ "message": "Ticket created", "ticket_id": 42, "priority": "high", "category": "network"}
+```
+
+The HTTP middleware logs every request automatically:
+
+```json
+{"timestamp": "2026-05-12T10:00:01Z", "level": "INFO", "module": "api.main",
+ "message": "HTTP request", "method": "POST", "path": "/tickets",
+ "status_code": 201, "duration_ms": 14.3}
+```
+
+View live logs from any service:
+
+```bash
+docker compose logs api -f
+docker compose logs scheduler -f
+```
+
+---
+
+## 📬 Postman Collection
+
+A full Postman collection is available in [`docs/SupportOps.postman_collection.json`](docs/SupportOps.postman_collection.json).
+
+**Import it:**
+1. Open Postman → Import → select the file
+2. Set the `base_url` variable to `http://localhost:8000`
+3. Run the collection with the Collection Runner
+
+**What it covers:**
+
+| Folder | Requests |
+|---|---|
+| System | Health check, Prometheus metrics |
+| Tickets | List, filter, create, update, resolve, delete |
+| Reports | Summary, SLA compliance, resolution time, health check log |
+
+Each request includes **automated tests** that verify status codes and response structure — run the full collection to validate the entire API in one click.

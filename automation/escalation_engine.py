@@ -1,53 +1,29 @@
 """
 escalation_engine.py — SLA breach detector and escalation handler.
-
-Runs on a schedule and scans open tickets for SLA violations.
-When a ticket exceeds its allowed response time, it is:
-  1. Marked as escalated in the database
-  2. Logged with an audit event
-  3. Would send a notification (stubbed — easy to extend with email/Slack)
-
-SLA thresholds (response time before first escalation):
-  critical → 15 minutes
-  high     → 1 hour
-  medium   → 4 hours
-  low      → 24 hours
 """
 
 import os
 import sys
-import logging
 from datetime import datetime, timedelta, UTC
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from api.database import SessionLocal
+from api.logger import get_logger
 from api.models import Ticket, TicketEvent, TicketStatus
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [EscalationEngine] %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
-# SLA response windows (hours before first escalation)
 SLA_RESPONSE_HOURS = {
-    "critical": 0.25,   # 15 minutes
-    "high": 1.0,
-    "medium": 4.0,
-    "low": 24.0,
+    "critical": 0.25,
+    "high":     1.0,
+    "medium":   4.0,
+    "low":      24.0,
 }
-
-# Max escalation count — stops re-escalating indefinitely
 MAX_ESCALATIONS = 3
 
 
 def check_and_escalate():
-    """
-    Main escalation logic.
-    Queries all open/in-progress tickets and escalates those that have breached SLA.
-    """
     db = SessionLocal()
     now = datetime.now(UTC)
     escalated_count = 0
@@ -56,95 +32,87 @@ def check_and_escalate():
     try:
         active_tickets = (
             db.query(Ticket)
-            .filter(Ticket.status.in_([TicketStatus.OPEN, TicketStatus.IN_PROGRESS]))
+            .join(Ticket.status_ref)
+            .filter(TicketStatus.name.in_(["open", "in_progress"]))
             .all()
         )
 
-        log.info(f"Checking {len(active_tickets)} active tickets for SLA compliance...")
+        log.info("Starting escalation run", extra={"active_tickets": len(active_tickets)})
 
         for ticket in active_tickets:
-            sla_hours = SLA_RESPONSE_HOURS.get(ticket.priority, 4.0)
-            sla_deadline = ticket.created_at + timedelta(hours=sla_hours)
-            age_hours = (now - ticket.created_at).total_seconds() / 3600
+            priority_name = ticket.priority_ref.name if ticket.priority_ref else "medium"
+            sla_hours     = SLA_RESPONSE_HOURS.get(priority_name, 4.0)
+
+            # Make created_at timezone-aware for comparison
+            created_at = ticket.created_at.replace(tzinfo=UTC) if ticket.created_at.tzinfo is None else ticket.created_at
+            sla_deadline = created_at + timedelta(hours=sla_hours)
+            age_hours    = (now - created_at).total_seconds() / 3600
 
             if now > sla_deadline:
-                # Mark SLA as breached regardless of escalation status
                 if not ticket.sla_breached:
                     ticket.sla_breached = True
                     breached_count += 1
-                    log.warning(
-                        f"🔴 SLA breached — Ticket #{ticket.id} [{ticket.priority}] "
-                        f"'{ticket.title[:50]}' (age: {age_hours:.1f}h, SLA: {sla_hours}h)"
-                    )
+                    log.warning("SLA breached", extra={
+                        "ticket_id": ticket.id,
+                        "priority":  priority_name,
+                        "age_hours": round(age_hours, 2),
+                        "sla_hours": sla_hours,
+                    })
 
-                # Escalate if not already at max
                 if not ticket.escalated and ticket.escalation_count < MAX_ESCALATIONS:
-                    ticket.escalated = True
+                    # Get escalated status ID
+                    escalated_status = db.query(TicketStatus).filter(TicketStatus.name == "escalated").first()
+                    if escalated_status:
+                        ticket.status_id = escalated_status.id
+
+                    ticket.escalated        = True
                     ticket.escalation_count += 1
-                    ticket.status = TicketStatus.ESCALATED
-                    ticket.updated_at = now
+                    ticket.updated_at       = now
 
                     db.add(TicketEvent(
-                        ticket_id=ticket.id,
-                        event_type="escalated",
-                        message=(
+                        ticket_id  = ticket.id,
+                        event_type = "escalated",
+                        message    = (
                             f"Auto-escalated by SLA engine. "
-                            f"Priority: {ticket.priority}, "
-                            f"Age: {age_hours:.1f}h, "
-                            f"SLA: {sla_hours}h. "
+                            f"Priority: {priority_name}, "
+                            f"Age: {age_hours:.1f}h, SLA: {sla_hours}h. "
                             f"Escalation #{ticket.escalation_count}."
                         ),
-                        created_at=now,
+                        created_at = now,
                     ))
 
-                    _send_notification(ticket)
+                    _send_notification(ticket, priority_name)
                     escalated_count += 1
-
-                elif ticket.escalation_count >= MAX_ESCALATIONS:
-                    log.info(
-                        f"⏭️  Ticket #{ticket.id} already at max escalations ({MAX_ESCALATIONS})"
-                    )
-            else:
-                remaining = (sla_deadline - now).total_seconds() / 60
-                log.debug(
-                    f"✅ Ticket #{ticket.id} within SLA — {remaining:.0f} min remaining"
-                )
+                    log.info("Ticket escalated", extra={
+                        "ticket_id":        ticket.id,
+                        "escalation_count": ticket.escalation_count,
+                        "priority":         priority_name,
+                    })
 
         db.commit()
-        log.info(
-            f"Escalation run complete. "
-            f"Newly breached: {breached_count}, Escalated: {escalated_count}"
-        )
+        log.info("Escalation run complete", extra={
+            "newly_breached": breached_count,
+            "escalated":      escalated_count,
+        })
 
     except Exception as e:
         db.rollback()
-        log.error(f"Escalation engine error: {e}", exc_info=True)
+        log.error("Escalation engine error", extra={"error": str(e)})
     finally:
         db.close()
 
     return {"escalated": escalated_count, "breached": breached_count}
 
 
-def _send_notification(ticket: Ticket):
-    """
-    Stub for escalation notifications.
-    In a real deployment, replace this with:
-      - Email via smtplib or SendGrid
-      - Slack webhook (httpx.post to webhook URL)
-      - PagerDuty API call
-      - Teams webhook
-    """
-    log.info(
-        f"📣 [NOTIFY] Ticket #{ticket.id} escalated — "
-        f"'{ticket.title[:60]}' | Priority: {ticket.priority} | "
-        f"Assignee: {ticket.assignee or 'unassigned'}"
-    )
-    # Example Slack webhook stub:
-    # webhook_url = os.getenv("SLACK_WEBHOOK_URL")
-    # if webhook_url:
-    #     httpx.post(webhook_url, json={"text": f"🔴 Ticket #{ticket.id} escalated: {ticket.title}"})
+def _send_notification(ticket: Ticket, priority_name: str):
+    log.info("Escalation notification", extra={
+        "ticket_id": ticket.id,
+        "title":     ticket.title[:60],
+        "priority":  priority_name,
+        "assignee":  ticket.assignee or "unassigned",
+    })
 
 
 if __name__ == "__main__":
     result = check_and_escalate()
-    log.info(f"Result: {result}")
+    log.info("Done", extra=result)

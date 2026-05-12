@@ -1,9 +1,5 @@
 """
 routers/tickets.py — Ticket CRUD endpoints.
-
-Priority, status, category and source are resolved from the lookup
-tables by name, so the API still accepts plain strings ("high", "open")
-while the database stores normalized foreign keys.
 """
 
 from datetime import datetime, UTC
@@ -12,16 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from api.database import get_db
+from api.logger import get_logger
 from api.models import Ticket, TicketEvent, TicketPriority, TicketStatus, TicketCategory, TicketSource
 from api.schemas import TicketCreate, TicketUpdate, TicketOut
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
+log = get_logger(__name__)
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _lookup(db: Session, model, name: str, field_label: str) -> int:
-    """Resolve a lookup name to its ID. Raises 400 if the value is invalid."""
     row = db.query(model).filter(model.name == name).first()
     if not row:
         valid = [r.name for r in db.query(model).all()]
@@ -35,8 +30,6 @@ def _lookup(db: Session, model, name: str, field_label: str) -> int:
 def _log_event(db: Session, ticket_id: int, event_type: str, message: str):
     db.add(TicketEvent(ticket_id=ticket_id, event_type=event_type, message=message))
 
-
-# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/", response_model=List[TicketOut], summary="List tickets")
 def list_tickets(
@@ -60,7 +53,12 @@ def list_tickets(
         query = query.filter(Ticket.assignee == assignee)
     if escalated is not None:
         query = query.filter(Ticket.escalated == escalated)
-    return query.order_by(Ticket.created_at.desc()).offset(offset).limit(limit).all()
+
+    results = query.order_by(Ticket.created_at.desc()).offset(offset).limit(limit).all()
+    log.debug("Listed tickets", extra={"count": len(results), "filters": {
+        "status": status, "priority": priority, "category": category,
+    }})
+    return results
 
 
 @router.post("/", response_model=TicketOut, status_code=201, summary="Create a ticket")
@@ -80,6 +78,13 @@ def create_ticket(payload: TicketCreate, db: Session = Depends(get_db)):
     _log_event(db, ticket.id, "created", f"Ticket created via {payload.source}")
     db.commit()
     db.refresh(ticket)
+
+    log.info("Ticket created", extra={
+        "ticket_id": ticket.id,
+        "priority":  payload.priority,
+        "category":  payload.category,
+        "source":    payload.source,
+    })
     return ticket
 
 
@@ -87,6 +92,7 @@ def create_ticket(payload: TicketCreate, db: Session = Depends(get_db)):
 def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
+        log.warning("Ticket not found", extra={"ticket_id": ticket_id})
         raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
     return ticket
 
@@ -95,6 +101,7 @@ def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
 def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(get_db)):
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
+        log.warning("Ticket not found for update", extra={"ticket_id": ticket_id})
         raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
 
     changes = payload.model_dump(exclude_unset=True)
@@ -118,6 +125,8 @@ def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(g
     _log_event(db, ticket.id, "updated", f"Fields updated: {', '.join(payload.model_dump(exclude_unset=True).keys())}")
     db.commit()
     db.refresh(ticket)
+
+    log.info("Ticket updated", extra={"ticket_id": ticket_id, "changes": list(payload.model_dump(exclude_unset=True).keys())})
     return ticket
 
 
@@ -125,6 +134,8 @@ def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(g
 def delete_ticket(ticket_id: int, db: Session = Depends(get_db)):
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
+        log.warning("Ticket not found for deletion", extra={"ticket_id": ticket_id})
         raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
     db.delete(ticket)
     db.commit()
+    log.info("Ticket deleted", extra={"ticket_id": ticket_id})
