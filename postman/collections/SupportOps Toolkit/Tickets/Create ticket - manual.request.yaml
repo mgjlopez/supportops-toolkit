@@ -1,0 +1,31 @@
+$kind: http-request
+name: 'Create ticket — manual'
+method: POST
+url: '{{base_url}}/tickets'
+description: "Creates a ticket manually. Status defaults to 'open'."
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "title": "VPN not connecting for remote user",
+      "description": "User reports VPN client fails at auth step since yesterday morning.",
+      "priority": "high",
+      "category": "network",
+      "assignee": "network.team",
+      "reporter": "john.doe",
+      "source": "manual"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Status 201', () => pm.response.to.have.status(201));
+      const ticket = pm.response.json();
+      pm.test('Has ID',           () => pm.expect(ticket.id).to.be.a('number'));
+      pm.test('Status is open',   () => pm.expect(ticket.status).to.eql('open'));
+      pm.test('Priority correct', () => pm.expect(ticket.priority).to.eql('high'));
+      pm.collectionVariables.set('ticket_id', ticket.id);

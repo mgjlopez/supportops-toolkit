@@ -1,0 +1,20 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/health'
+description: Variant of the Health Check request — same /health endpoint, focused on validating the response body schema (api/database fields).
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status is 200 OK", () => {
+        pm.response.to.have.status(200);
+      });
+      pm.test("API status is ok", () => {
+        pm.expect(pm.response.json().api).to.eql("ok");
+      });
+      pm.test("Database field is present", () => {
+        pm.expect(pm.response.json()).to.have.property("database");
+      });
+      pm.test("Response time under 500ms", () => {
+        pm.expect(pm.response.responseTime).to.be.below(500);
+      });

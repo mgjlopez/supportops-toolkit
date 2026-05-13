@@ -1,0 +1,21 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/reports/summary'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status is 200 OK", () => {
+        pm.response.to.have.status(200);
+      });
+      pm.test("Each item has required fields", () => {
+        const items = pm.response.json();
+        pm.expect(items).to.be.an("array");
+        items.forEach(item => {
+          pm.expect(item).to.have.property("category");
+          pm.expect(item).to.have.property("total");
+          pm.expect(item).to.have.property("open");
+          pm.expect(item).to.have.property("resolved");
+          pm.expect(item).to.have.property("escalated");
+        });
+      });

@@ -1,0 +1,11 @@
+$kind: collection
+name: SupportOps Toolkit
+description: |-
+  Complete API collection for the SupportOps Toolkit. Covers ticket management, reporting, and health checks.
+
+  Set the `base_url` variable to `http://localhost:8000` before running.
+variables:
+  - key: base_url
+    value: 'http://localhost:8000'
+  - key: ticket_id
+    value: '1'

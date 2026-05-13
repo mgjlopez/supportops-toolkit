@@ -1,0 +1,21 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/tickets/{{ticket_id}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"status": "banana"}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status is 400 Bad Request", () => {
+        pm.response.to.have.status(400);
+      });
+      pm.test("Error mentions invalid status", () => {
+        const body = pm.response.json();
+        pm.expect(JSON.stringify(body)).to.include("status");
+      });

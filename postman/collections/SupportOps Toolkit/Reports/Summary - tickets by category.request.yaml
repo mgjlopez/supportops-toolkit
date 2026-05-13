@@ -1,0 +1,11 @@
+$kind: http-request
+name: 'Summary — tickets by category'
+method: GET
+url: '{{base_url}}/reports/summary'
+description: Returns a summary of tickets grouped by category.
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));

@@ -1,0 +1,11 @@
+$kind: http-request
+name: 'Health check log'
+method: GET
+url: '{{base_url}}/reports/health-checks'
+description: Returns the historical log of health check results.
+order: 4000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));

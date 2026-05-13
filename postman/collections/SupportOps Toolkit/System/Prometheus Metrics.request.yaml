@@ -1,0 +1,11 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/metrics'
+description: Returns raw Prometheus metrics scraped by Grafana.
+order: 2000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      pm.test('Contains supportops metrics', () => pm.expect(pm.response.text()).to.include('supportops_tickets_total'));

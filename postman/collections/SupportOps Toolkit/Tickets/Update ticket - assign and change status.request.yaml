@@ -1,0 +1,23 @@
+$kind: http-request
+name: 'Update ticket — assign and change status'
+method: PUT
+url: '{{base_url}}/tickets/{{ticket_id}}'
+description: Assigns the ticket to an agent and changes its status to in_progress.
+order: 8000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "status": "in_progress",
+      "assigned_to": "ops.engineer"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Status 200',           () => pm.response.to.have.status(200));
+      pm.test('Status is in_progress',() => pm.expect(pm.response.json().status).to.eql('in_progress'));
+      pm.test('Assigned correctly',   () => pm.expect(pm.response.json().assigned_to).to.eql('ops.engineer'));

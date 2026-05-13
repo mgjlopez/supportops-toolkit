@@ -1,0 +1,23 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/reports/sla'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status is 200 OK", () => {
+        pm.response.to.have.status(200);
+      });
+      pm.test("Each item has required SLA fields", () => {
+        const items = pm.response.json();
+        pm.expect(items).to.be.an("array");
+        items.forEach(item => {
+          pm.expect(item).to.have.property("priority");
+          pm.expect(item).to.have.property("compliance_rate");
+        });
+      });
+      pm.test("Compliance rate is between 0 and 100", () => {
+        pm.response.json().forEach(item => {
+          pm.expect(item.compliance_rate).to.be.within(0, 100);
+        });
+      });

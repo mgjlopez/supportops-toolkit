@@ -1,0 +1,10 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/tickets/not-a-number'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status is 422 Unprocessable Entity", () => {
+        pm.response.to.have.status(422);
+      });

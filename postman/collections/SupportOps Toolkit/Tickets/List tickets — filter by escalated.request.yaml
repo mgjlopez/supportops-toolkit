@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/tickets/?escalated=true'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status is 200 OK", () => {
+        pm.response.to.have.status(200);
+      });
+      pm.test("All returned tickets are escalated", () => {
+        const tickets = pm.response.json();
+        tickets.forEach(t => pm.expect(t.escalated).to.be.true);
+      });

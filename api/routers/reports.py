@@ -23,13 +23,15 @@ def summary_report(db: Session = Depends(get_db)):
     """
     sql = text("""
         SELECT
-            category,
-            COUNT(*)                                        AS total,
-            SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END)       AS [open],
-            SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END)    AS resolved,
-            SUM(CASE WHEN escalated = 1 THEN 1 ELSE 0 END)          AS escalated
-        FROM tickets
-        GROUP BY category
+            c.name AS category,
+            COUNT(*)                                               AS total,
+            SUM(CASE WHEN s.name = 'open' THEN 1 ELSE 0 END)       AS [open],
+            SUM(CASE WHEN s.name = 'resolved' THEN 1 ELSE 0 END)   AS resolved,
+            SUM(CASE WHEN t.escalated = 1 THEN 1 ELSE 0 END)       AS escalated
+        FROM tickets t
+        JOIN ticket_categories c ON c.id = t.category_id
+        JOIN ticket_statuses   s ON s.id = t.status_id
+        GROUP BY c.name
         ORDER BY total DESC
     """)
     rows = db.execute(sql).mappings().all()
@@ -44,18 +46,19 @@ def sla_report(db: Session = Depends(get_db)):
     """
     sql = text("""
         SELECT
-            priority,
+            p.name AS priority,
             COUNT(*)                                                AS total_tickets,
-            SUM(CASE WHEN sla_breached = 1 THEN 1 ELSE 0 END)      AS breached,
+            SUM(CASE WHEN t.sla_breached = 1 THEN 1 ELSE 0 END)     AS breached,
             CAST(
                 1.0 - (
-                    SUM(CASE WHEN sla_breached = 1 THEN 1.0 ELSE 0.0 END) / COUNT(*)
+                    SUM(CASE WHEN t.sla_breached = 1 THEN 1.0 ELSE 0.0 END) / COUNT(*)
                 )
             AS DECIMAL(5,4))                                        AS compliance_rate
-        FROM tickets
-        GROUP BY priority
+        FROM tickets t
+        JOIN ticket_priorities p ON p.id = t.priority_id
+        GROUP BY p.name
         ORDER BY
-            CASE priority
+            CASE p.name
                 WHEN 'critical' THEN 1
                 WHEN 'high'     THEN 2
                 WHEN 'medium'   THEN 3
@@ -74,18 +77,19 @@ def resolution_report(db: Session = Depends(get_db)):
     """
     sql = text("""
         SELECT
-            priority,
-            CAST(AVG(CAST(DATEDIFF(MINUTE, created_at, resolved_at) AS FLOAT) / 60)
+            p.name AS priority,
+            CAST(AVG(CAST(DATEDIFF(MINUTE, t.created_at, t.resolved_at) AS FLOAT) / 60)
                 AS DECIMAL(10,2))  AS avg_resolution_hours,
-            CAST(MIN(CAST(DATEDIFF(MINUTE, created_at, resolved_at) AS FLOAT) / 60)
+            CAST(MIN(CAST(DATEDIFF(MINUTE, t.created_at, t.resolved_at) AS FLOAT) / 60)
                 AS DECIMAL(10,2))  AS min_resolution_hours,
-            CAST(MAX(CAST(DATEDIFF(MINUTE, created_at, resolved_at) AS FLOAT) / 60)
+            CAST(MAX(CAST(DATEDIFF(MINUTE, t.created_at, t.resolved_at) AS FLOAT) / 60)
                 AS DECIMAL(10,2))  AS max_resolution_hours
-        FROM tickets
-        WHERE resolved_at IS NOT NULL
-        GROUP BY priority
+        FROM tickets t
+        JOIN ticket_priorities p ON p.id = t.priority_id
+        WHERE t.resolved_at IS NOT NULL
+        GROUP BY p.name
         ORDER BY
-            CASE priority
+            CASE p.name
                 WHEN 'critical' THEN 1
                 WHEN 'high'     THEN 2
                 WHEN 'medium'   THEN 3

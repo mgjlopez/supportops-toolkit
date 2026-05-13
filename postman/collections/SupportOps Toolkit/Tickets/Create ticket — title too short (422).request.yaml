@@ -1,0 +1,21 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/tickets/'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"title": "Hi", "priority": "medium", "category": "other"}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status is 422 Unprocessable Entity", () => {
+        pm.response.to.have.status(422);
+      });
+      pm.test("Validation error for title length", () => {
+        const body = pm.response.json();
+        pm.expect(JSON.stringify(body)).to.include("title");
+      });

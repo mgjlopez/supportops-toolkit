@@ -1,0 +1,11 @@
+$kind: http-request
+name: 'Delete ticket'
+method: DELETE
+url: '{{base_url}}/tickets/{{ticket_id}}'
+description: Deletes the ticket with the given ID.
+order: 10000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Status 200 or 204', () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));
