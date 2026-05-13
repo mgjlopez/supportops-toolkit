@@ -33,6 +33,45 @@
           ]
         },
         {
+          "name": "Health check — response body validation",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health",
+            "description": "Validates the response body schema (api/database fields) and response time."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('API status is ok', () => pm.expect(pm.response.json().api).to.eql('ok'));",
+                  "pm.test('Database field is present', () => pm.expect(pm.response.json()).to.have.property('database'));",
+                  "pm.test('Response time under 500ms', () => pm.expect(pm.response.responseTime).to.be.below(500));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health check — response time SLA",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health",
+            "description": "Enforces a response-time SLA of under 200ms."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Response time is under 200ms', () => pm.expect(pm.response.responseTime).to.be.below(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Prometheus Metrics",
           "request": {
             "method": "GET",
@@ -60,11 +99,7 @@
           "name": "List all tickets",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/tickets",
-              "host": ["{{base_url}}"],
-              "path": ["tickets"]
-            },
+            "url": "{{base_url}}/tickets",
             "description": "Returns all tickets ordered by creation date."
           },
           "event": [
@@ -132,6 +167,60 @@
           ]
         },
         {
+          "name": "List tickets — filter by escalated",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/tickets?escalated=true",
+              "host": ["{{base_url}}"],
+              "path": ["tickets"],
+              "query": [{ "key": "escalated", "value": "true" }]
+            },
+            "description": "Returns only escalated tickets."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('All returned tickets are escalated', () => {",
+                  "  pm.response.json().forEach(t => pm.expect(t.escalated).to.be.true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List tickets — pagination",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/tickets?limit=2&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["tickets"],
+              "query": [
+                { "key": "limit", "value": "2" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "description": "Tests pagination — limit and offset query params."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('Respects limit — max 2 results', () => pm.expect(pm.response.json().length).to.be.at.most(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Create ticket — manual",
           "request": {
             "method": "POST",
@@ -184,6 +273,54 @@
           ]
         },
         {
+          "name": "Create ticket — missing title (422)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/tickets",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"No title provided\",\n  \"priority\": \"medium\"\n}"
+            },
+            "description": "Verifies that omitting the required title field returns 422."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Error mentions title field', () => pm.expect(JSON.stringify(pm.response.json())).to.include('title'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create ticket — title too short (422)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/tickets",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hi\",\n  \"priority\": \"medium\",\n  \"category\": \"other\"\n}"
+            },
+            "description": "Verifies that a title shorter than 5 characters returns 422."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Validation error for title length', () => pm.expect(JSON.stringify(pm.response.json())).to.include('title'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Create ticket — invalid priority (expect 400)",
           "request": {
             "method": "POST",
@@ -200,7 +337,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status 400',         () => pm.response.to.have.status(400));",
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has error message', () => pm.expect(pm.response.json()).to.have.property('detail'));",
                   "pm.test('Error mentions valid values', () => pm.expect(pm.response.json().detail).to.include('Valid values'));"
                 ]
               }
@@ -220,7 +358,26 @@
               "script": {
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ID matches', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('ticket_id'))));",
                   "pm.test('Has events', () => pm.expect(pm.response.json().events).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get ticket — invalid ID (422)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/tickets/not-a-number",
+            "description": "Verifies that a non-numeric ticket ID returns 422."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 422 Unprocessable Entity', () => pm.response.to.have.status(422));"
                 ]
               }
             }
@@ -236,15 +393,15 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"in_progress\",\n  \"assignee\": \"sysadmin1\"\n}"
             },
-            "description": "Partial update — only the provided fields are changed."
+            "description": "Partial update — assigns the ticket and changes status to in_progress."
           },
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status 200',           () => pm.response.to.have.status(200));",
-                  "pm.test('Status updated',        () => pm.expect(pm.response.json().status).to.eql('in_progress'));",
+                  "pm.test('Status 200',            () => pm.response.to.have.status(200));",
+                  "pm.test('Status is in_progress', () => pm.expect(pm.response.json().status).to.eql('in_progress'));",
                   "pm.test('Assignee updated',      () => pm.expect(pm.response.json().assignee).to.eql('sysadmin1'));"
                 ]
               }
@@ -261,7 +418,7 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"resolved\"\n}"
             },
-            "description": "Resolving a ticket auto-sets resolved_at timestamp."
+            "description": "Resolving a ticket auto-sets the resolved_at timestamp."
           },
           "event": [
             {
@@ -271,6 +428,30 @@
                   "pm.test('Status 200',          () => pm.response.to.have.status(200));",
                   "pm.test('Status is resolved',  () => pm.expect(pm.response.json().status).to.eql('resolved'));",
                   "pm.test('resolved_at is set',  () => pm.expect(pm.response.json().resolved_at).to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update ticket — invalid status (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/tickets/{{ticket_id}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"banana\"\n}"
+            },
+            "description": "Verifies that an invalid status value returns 400 with a descriptive error."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Error mentions invalid status', () => pm.expect(JSON.stringify(pm.response.json())).to.include('status'));"
                 ]
               }
             }
@@ -323,6 +504,35 @@
           ]
         },
         {
+          "name": "Summary — schema validation",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/reports/summary",
+            "description": "Validates the full schema of the summary response — all required fields must be present."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Each item has required fields', () => {",
+                  "  const items = pm.response.json();",
+                  "  pm.expect(items).to.be.an('array');",
+                  "  items.forEach(item => {",
+                  "    pm.expect(item).to.have.property('category');",
+                  "    pm.expect(item).to.have.property('total');",
+                  "    pm.expect(item).to.have.property('open');",
+                  "    pm.expect(item).to.have.property('resolved');",
+                  "    pm.expect(item).to.have.property('escalated');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "SLA compliance by priority",
           "request": {
             "method": "GET",
@@ -336,9 +546,36 @@
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
                   "pm.test('Compliance rate is between 0 and 1', () => {",
-                  "  pm.response.json().forEach(r => {",
-                  "    pm.expect(r.compliance_rate).to.be.within(0, 1);",
+                  "  pm.response.json().forEach(r => pm.expect(r.compliance_rate).to.be.within(0, 1));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SLA — schema validation",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/reports/sla",
+            "description": "Validates the full schema of the SLA response — all required fields must be present."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Each item has required SLA fields', () => {",
+                  "  const items = pm.response.json();",
+                  "  pm.expect(items).to.be.an('array');",
+                  "  items.forEach(item => {",
+                  "    pm.expect(item).to.have.property('priority');",
+                  "    pm.expect(item).to.have.property('compliance_rate');",
                   "  });",
+                  "});",
+                  "pm.test('Compliance rate is between 0 and 1', () => {",
+                  "  pm.response.json().forEach(item => pm.expect(item.compliance_rate).to.be.within(0, 1));",
                   "});"
                 ]
               }
