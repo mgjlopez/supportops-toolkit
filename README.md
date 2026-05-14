@@ -34,7 +34,7 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 ┌──────────────────────────────────────────────────────────────────┐
 │                        Docker Network                            │
 │                                                                  │
-│  ┌─────────────┐      ┌──────────────────────┐                   │
+│  ┌─────────────┐      ┌───────────────────────┐                  │
 │  │  SQL Server │◄─────│   FastAPI (port 8000) │                  │
 │  │    2025     │      │   REST API + Logic    │                  │
 │  │  port 1433  │      └──────────┬────────────┘                  │
