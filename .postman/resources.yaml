@@ -5,3 +5,10 @@ workspace:
 localResources:
   collections:
     - ..\docs\SupportOps.postman_collection.json
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ..\postman\collections\SupportOps Toolkit Copy: 7013a7f1-87cc-4856-8096-d5fe3d04f5a4
+    ..\postman\collections\SupportOps Toolkit: d61d9831-9c7f-4212-8d1c-12114b957de7

@@ -34,7 +34,7 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 ┌──────────────────────────────────────────────────────────────────┐
 │                        Docker Network                            │
 │                                                                  │
-│  ┌─────────────┐      ┌──────────────────────┐                   │
+│  ┌─────────────┐      ┌──────────────────────┐                  │
 │  │  SQL Server │◄─────│   FastAPI (port 8000) │                  │
 │  │    2025     │      │   REST API + Logic    │                  │
 │  │  port 1433  │      └──────────┬────────────┘                  │
@@ -44,10 +44,10 @@ Everything runs locally via **Docker Compose** — no paid cloud services needed
 │                         │  (schedulers)   │                      │
 │                         └────────┬────────┘                      │
 │                                  │ /metrics                      │
-│                         ┌────────▼────────┐    ┌─────────────┐   │
-│                         │   Prometheus    │───►│   Grafana   │   │
-│                         │   port 9090     │    │  port 3000  │   │
-│                         └─────────────────┘    └─────────────┘   │
+│                         ┌────────▼────────┐    ┌─────────────┐  │
+│                         │   Prometheus    │───►│   Grafana   │  │
+│                         │   port 9090     │    │  port 3000  │  │
+│                         └─────────────────┘    └─────────────┘  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -281,3 +281,32 @@ A full Postman collection is available in [`docs/SupportOps.postman_collection.j
 | Reports | Summary, SLA compliance, resolution time, health check log |
 
 Each request includes **automated tests** that verify status codes and response structure — run the full collection to validate the entire API in one click.
+
+---
+
+## ☸️ Kubernetes Deployment
+
+The `k8s/` folder contains manifests to deploy the full stack on a local Kubernetes cluster using **minikube** (free, runs on your machine).
+
+```
+k8s/
+├── namespace.yml    # Isolates all resources under the 'supportops' namespace
+├── secret.yml       # DB credentials stored as a Kubernetes Secret
+├── sqlserver.yml    # SQL Server deployment + PersistentVolumeClaim + Service
+├── api.yml          # FastAPI deployment (2 replicas) + Service
+├── scheduler.yml    # Background automation (single replica)
+├── ingress.yml      # Exposes the API via nginx ingress
+└── README.md        # Step-by-step setup guide
+```
+
+Key concepts demonstrated:
+
+- **Namespaces** — resource isolation
+- **Secrets** — credentials never in plain text
+- **Deployments** — declarative replica management
+- **Services** — internal DNS between pods
+- **Liveness/Readiness probes** — automatic health checking
+- **PersistentVolumeClaim** — database storage that survives pod restarts
+- **Ingress** — single entry point for external traffic
+
+See [`k8s/README.md`](k8s/README.md) for the full setup guide.
