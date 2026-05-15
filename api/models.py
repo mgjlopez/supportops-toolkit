@@ -1,20 +1,10 @@
 """
 models.py — SQLAlchemy ORM models.
-
-Priorities, statuses, categories and sources are normalized into
-lookup tables. Tickets reference them via foreign keys.
-
-The convenience properties use a p_ prefix to avoid conflicting
-with SQLAlchemy's internal attribute handling.
 """
 
 from datetime import datetime, UTC
-from sqlalchemy import (
-    Column, Integer, String, DateTime, Text,
-    Boolean, Float, ForeignKey,
-)
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, Float, ForeignKey
 from sqlalchemy.orm import relationship
-
 from api.database import Base
 
 
@@ -45,7 +35,29 @@ class TicketSource(Base):
     tickets = relationship("Ticket", back_populates="source_ref")
 
 
-# ── Main tables ───────────────────────────────────────────────────────────────
+# ── Teams & Users ─────────────────────────────────────────────────────────────
+
+class Team(Base):
+    __tablename__ = "teams"
+    id   = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False, unique=True)
+    users = relationship("User", back_populates="team_ref")
+
+class User(Base):
+    __tablename__ = "users"
+    id              = Column(Integer, primary_key=True, index=True)
+    username        = Column(String(100), nullable=False, unique=True, index=True)
+    full_name       = Column(String(200), nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    role            = Column(String(50), default="agent")   # agent | admin
+    team_id         = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    is_active       = Column(Boolean, default=True)
+    created_at      = Column(DateTime, default=lambda: datetime.now(UTC))
+
+    team_ref = relationship("Team", back_populates="users")
+
+
+# ── Tickets ───────────────────────────────────────────────────────────────────
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -62,13 +74,11 @@ class Ticket(Base):
     updated_at       = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     resolved_at      = Column(DateTime, nullable=True)
 
-    # Foreign keys
     priority_id = Column(Integer, ForeignKey("ticket_priorities.id"), nullable=False)
     status_id   = Column(Integer, ForeignKey("ticket_statuses.id"),   nullable=False)
     category_id = Column(Integer, ForeignKey("ticket_categories.id"), nullable=False)
     source_id   = Column(Integer, ForeignKey("ticket_sources.id"),    nullable=False)
 
-    # Relationships
     priority_ref = relationship("TicketPriority", back_populates="tickets")
     status_ref   = relationship("TicketStatus",   back_populates="tickets")
     category_ref = relationship("TicketCategory", back_populates="tickets")

@@ -5,10 +5,107 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000", "type": "string" },
-    { "key": "ticket_id", "value": "1", "type": "string" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "ticket_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "alice.jones",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "pass123",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    }
   ],
   "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login (saves token automatically)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{username}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Login and save JWT token automatically.\n\nSet username/password in collection variables before running.\n\nDemo accounts:\n- alice.jones / pass123 (network team)\n- bob.smith / pass123 (sysadmin)\n- carol.white / pass123 (helpdesk)\n- admin / admin123 (admin)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Has access_token', () => pm.expect(data).to.have.property('access_token'));",
+                  "pm.collectionVariables.set('jwt_token', data.access_token);",
+                  "pm.collectionVariables.set('current_user', JSON.stringify(data.user));",
+                  "console.log('Token saved. Logged in as:', data.user.username);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current user (me)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "description": "Returns the currently authenticated user. Run Login first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has username', () => pm.expect(pm.response.json()).to.have.property('username'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "System",
       "item": [
@@ -17,7 +114,13 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/health",
-            "description": "Verifies the API and database are reachable."
+            "description": "Verifies the API and database are reachable.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -33,11 +136,17 @@
           ]
         },
         {
-          "name": "Health check — response body validation",
+          "name": "Health check \u2014 response body validation",
           "request": {
             "method": "GET",
             "url": "{{base_url}}/health",
-            "description": "Validates the response body schema (api/database fields) and response time."
+            "description": "Validates the response body schema (api/database fields) and response time.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -54,11 +163,17 @@
           ]
         },
         {
-          "name": "Health check — response time SLA",
+          "name": "Health check \u2014 response time SLA",
           "request": {
             "method": "GET",
             "url": "{{base_url}}/health",
-            "description": "Enforces a response-time SLA of under 200ms."
+            "description": "Enforces a response-time SLA of under 200ms.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -76,7 +191,13 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/metrics",
-            "description": "Returns raw Prometheus metrics scraped by Grafana."
+            "description": "Returns raw Prometheus metrics scraped by Grafana.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -100,7 +221,13 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/tickets",
-            "description": "Returns all tickets ordered by creation date."
+            "description": "Returns all tickets ordered by creation date.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -115,16 +242,31 @@
           ]
         },
         {
-          "name": "List tickets — filter by status",
+          "name": "List tickets \u2014 filter by status",
           "request": {
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/tickets?status=open",
-              "host": ["{{base_url}}"],
-              "path": ["tickets"],
-              "query": [{ "key": "status", "value": "open" }]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "open"
+                }
+              ]
             },
-            "description": "Filter tickets by status. Valid values: open, in_progress, escalated, resolved, closed."
+            "description": "Filter tickets by status. Valid values: open, in_progress, escalated, resolved, closed.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -141,16 +283,31 @@
           ]
         },
         {
-          "name": "List tickets — filter by priority",
+          "name": "List tickets \u2014 filter by priority",
           "request": {
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/tickets?priority=critical",
-              "host": ["{{base_url}}"],
-              "path": ["tickets"],
-              "query": [{ "key": "priority", "value": "critical" }]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "priority",
+                  "value": "critical"
+                }
+              ]
             },
-            "description": "Filter by priority. Valid values: critical, high, medium, low."
+            "description": "Filter by priority. Valid values: critical, high, medium, low.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -167,16 +324,31 @@
           ]
         },
         {
-          "name": "List tickets — filter by escalated",
+          "name": "List tickets \u2014 filter by escalated",
           "request": {
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/tickets?escalated=true",
-              "host": ["{{base_url}}"],
-              "path": ["tickets"],
-              "query": [{ "key": "escalated", "value": "true" }]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "escalated",
+                  "value": "true"
+                }
+              ]
             },
-            "description": "Returns only escalated tickets."
+            "description": "Returns only escalated tickets.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -193,19 +365,35 @@
           ]
         },
         {
-          "name": "List tickets — pagination",
+          "name": "List tickets \u2014 pagination",
           "request": {
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/tickets?limit=2&offset=0",
-              "host": ["{{base_url}}"],
-              "path": ["tickets"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tickets"
+              ],
               "query": [
-                { "key": "limit", "value": "2" },
-                { "key": "offset", "value": "0" }
+                {
+                  "key": "limit",
+                  "value": "2"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             },
-            "description": "Tests pagination — limit and offset query params."
+            "description": "Tests pagination \u2014 limit and offset query params.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -214,18 +402,27 @@
                 "exec": [
                   "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
                   "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));",
-                  "pm.test('Respects limit — max 2 results', () => pm.expect(pm.response.json().length).to.be.at.most(2));"
+                  "pm.test('Respects limit \u2014 max 2 results', () => pm.expect(pm.response.json().length).to.be.at.most(2));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Create ticket — manual",
+          "name": "Create ticket \u2014 manual",
           "request": {
             "method": "POST",
             "url": "{{base_url}}/tickets",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"VPN not connecting for remote user\",\n  \"description\": \"User reports VPN client fails at auth step since yesterday morning.\",\n  \"priority\": \"high\",\n  \"category\": \"network\",\n  \"assignee\": \"network.team\",\n  \"reporter\": \"john.doe\",\n  \"source\": \"manual\"\n}"
@@ -249,11 +446,20 @@
           ]
         },
         {
-          "name": "Create ticket — auto (from monitor)",
+          "name": "Create ticket \u2014 auto (from monitor)",
           "request": {
             "method": "POST",
             "url": "{{base_url}}/tickets",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Disk usage on FILESERVER01 at 92%\",\n  \"description\": \"Automated alert: disk C: at 92.1%. Threshold is 85%.\",\n  \"priority\": \"critical\",\n  \"category\": \"performance\",\n  \"reporter\": \"health_monitor\",\n  \"source\": \"auto\"\n}"
@@ -273,11 +479,20 @@
           ]
         },
         {
-          "name": "Create ticket — missing title (422)",
+          "name": "Create ticket \u2014 missing title (422)",
           "request": {
             "method": "POST",
             "url": "{{base_url}}/tickets",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"description\": \"No title provided\",\n  \"priority\": \"medium\"\n}"
@@ -297,11 +512,20 @@
           ]
         },
         {
-          "name": "Create ticket — title too short (422)",
+          "name": "Create ticket \u2014 title too short (422)",
           "request": {
             "method": "POST",
             "url": "{{base_url}}/tickets",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Hi\",\n  \"priority\": \"medium\",\n  \"category\": \"other\"\n}"
@@ -321,11 +545,20 @@
           ]
         },
         {
-          "name": "Create ticket — invalid priority (expect 400)",
+          "name": "Create ticket \u2014 invalid priority (expect 400)",
           "request": {
             "method": "POST",
             "url": "{{base_url}}/tickets",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Testing invalid priority value\",\n  \"priority\": \"super_urgent\"\n}"
@@ -350,7 +583,13 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/tickets/{{ticket_id}}",
-            "description": "Returns a single ticket with its full audit trail."
+            "description": "Returns a single ticket with its full audit trail.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -366,11 +605,17 @@
           ]
         },
         {
-          "name": "Get ticket — invalid ID (422)",
+          "name": "Get ticket \u2014 invalid ID (422)",
           "request": {
             "method": "GET",
             "url": "{{base_url}}/tickets/not-a-number",
-            "description": "Verifies that a non-numeric ticket ID returns 422."
+            "description": "Verifies that a non-numeric ticket ID returns 422.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -384,16 +629,25 @@
           ]
         },
         {
-          "name": "Update ticket — assign and change status",
+          "name": "Update ticket \u2014 assign and change status",
           "request": {
             "method": "PATCH",
             "url": "{{base_url}}/tickets/{{ticket_id}}",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"in_progress\",\n  \"assignee\": \"sysadmin1\"\n}"
             },
-            "description": "Partial update — assigns the ticket and changes status to in_progress."
+            "description": "Partial update \u2014 assigns the ticket and changes status to in_progress."
           },
           "event": [
             {
@@ -409,11 +663,20 @@
           ]
         },
         {
-          "name": "Update ticket — resolve",
+          "name": "Update ticket \u2014 resolve",
           "request": {
             "method": "PATCH",
             "url": "{{base_url}}/tickets/{{ticket_id}}",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"resolved\"\n}"
@@ -434,11 +697,20 @@
           ]
         },
         {
-          "name": "Update ticket — invalid status (400)",
+          "name": "Update ticket \u2014 invalid status (400)",
           "request": {
             "method": "PATCH",
             "url": "{{base_url}}/tickets/{{ticket_id}}",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"banana\"\n}"
@@ -462,7 +734,13 @@
           "request": {
             "method": "DELETE",
             "url": "{{base_url}}/tickets/{{ticket_id}}",
-            "description": "Deletes a ticket and all its audit events."
+            "description": "Deletes a ticket and all its audit events.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -481,11 +759,17 @@
       "name": "Reports",
       "item": [
         {
-          "name": "Summary — tickets by category",
+          "name": "Summary \u2014 tickets by category",
           "request": {
             "method": "GET",
             "url": "{{base_url}}/reports/summary",
-            "description": "Returns ticket volume grouped by category with open/resolved/escalated breakdown."
+            "description": "Returns ticket volume grouped by category with open/resolved/escalated breakdown.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -504,11 +788,17 @@
           ]
         },
         {
-          "name": "Summary — schema validation",
+          "name": "Summary \u2014 schema validation",
           "request": {
             "method": "GET",
             "url": "{{base_url}}/reports/summary",
-            "description": "Validates the full schema of the summary response — all required fields must be present."
+            "description": "Validates the full schema of the summary response \u2014 all required fields must be present.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -537,7 +827,13 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/reports/sla",
-            "description": "Returns SLA compliance rate per priority level."
+            "description": "Returns SLA compliance rate per priority level.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -554,11 +850,17 @@
           ]
         },
         {
-          "name": "SLA — schema validation",
+          "name": "SLA \u2014 schema validation",
           "request": {
             "method": "GET",
             "url": "{{base_url}}/reports/sla",
-            "description": "Validates the full schema of the SLA response — all required fields must be present."
+            "description": "Validates the full schema of the SLA response \u2014 all required fields must be present.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -587,7 +889,13 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/reports/resolution",
-            "description": "Returns avg/min/max resolution time in hours, grouped by priority."
+            "description": "Returns avg/min/max resolution time in hours, grouped by priority.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -606,11 +914,27 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/reports/health-checks?limit=20",
-              "host": ["{{base_url}}"],
-              "path": ["reports", "health-checks"],
-              "query": [{ "key": "limit", "value": "20" }]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "health-checks"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
             },
-            "description": "Returns the most recent health check results from the monitor."
+            "description": "Returns the most recent health check results from the monitor.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -625,5 +949,15 @@
         }
       ]
     }
-  ]
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  }
 }
