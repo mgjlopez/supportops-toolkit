@@ -21,6 +21,7 @@ SupportOps Toolkit automates the repetitive work of a Technical Support Engineer
 | 🎫 **Auto-Ticketing** | Detects incidents and opens tickets automatically |
 | ⏫ **Escalation Engine** | Escalates tickets that breach SLA thresholds |
 | 🌐 **REST API** | FastAPI interface to manage tickets (like a mini Ticketing System) |
+| 🖥️ **Web UI** | React SPA served by FastAPI — full ticket management without Swagger |
 | 📊 **Reports** | SQL-based reports: resolution time, ticket volume, SLA compliance |
 | 📈 **Observability** | Prometheus + Grafana dashboard with live ticket and health check metrics |
 
@@ -84,6 +85,7 @@ docker compose exec api python db/seed.py
 
 | Service | URL | Credentials |
 |---|---|---|
+| **Web UI** | http://localhost:8000/ui | See demo users below |
 | **API Swagger UI** | http://localhost:8000/docs | — |
 | **API Health check** | http://localhost:8000/health | — |
 | **Prometheus** | http://localhost:9090 | — |
@@ -96,30 +98,38 @@ docker compose exec api python db/seed.py
 ```
 supportops-toolkit/
 ├── api/                        # FastAPI application
-│   ├── main.py                 # App entrypoint + routes
+│   ├── main.py                 # App entrypoint + serves /ui from frontend/dist/
 │   ├── models.py               # SQLAlchemy ORM models
 │   ├── schemas.py              # Pydantic request/response models
 │   ├── database.py             # SQLAlchemy + SQL Server connection
+│   ├── auth.py                 # JWT: hash_password, verify_password, get_current_user
+│   ├── logger.py               # JSON structured logging
 │   ├── metrics.py              # Custom Prometheus metrics
 │   └── routers/
-│       ├── tickets.py          # Ticket CRUD endpoints
+│       ├── auth.py             # POST /auth/login, GET /auth/me
+│       ├── tickets.py          # Ticket CRUD + /stats + /lookup-values
 │       └── reports.py          # Reporting endpoints
 ├── automation/                 # Core automation scripts
 │   ├── health_monitor.py       # System health checks → auto-tickets
 │   ├── escalation_engine.py    # SLA breach detection + escalation
 │   └── scheduler.py            # Runs monitor + escalation on a schedule
+├── frontend/
+│   └── dist/
+│       └── index.html          # React SPA (single file, no build step required)
 ├── monitoring/                 # Observability configuration
 │   ├── prometheus.yml          # Prometheus scrape config
 │   └── grafana/
 │       ├── datasources/        # Auto-configured Prometheus datasource
 │       └── dashboards/         # Pre-built SupportOps dashboard
 ├── db/
-│   ├── migrate.py              # Schema creation + lookup table seeding
-│   └── seed.py                 # Sample data loader
+│   ├── migrate.py              # Schema creation + lookup seeding + demo users
+│   └── seed.py                 # 50 sample tickets assigned to real users/teams
 ├── docs/
-│   └── runbook.md              # Incident response runbook
+│   ├── runbook.md              # Incident response runbook
+│   └── SupportOps.postman_collection.json
 ├── tests/
-│   └── test_tickets.py        # API endpoint tests
+│   └── test_tickets.py        # API endpoint tests (SQLite, no SQL Server needed)
+├── k8s/                        # Kubernetes manifests (minikube)
 ├── docker-compose.yml
 ├── Dockerfile
 ├── requirements.txt
@@ -151,10 +161,45 @@ Reads open tickets and checks age vs. SLA rules:
 
 Breached tickets get escalated and flagged in the database.
 
+### Web UI
+
+A single-page React app is served by FastAPI at `/ui` — no build step or separate server needed. It provides a full ticket management interface without touching Swagger.
+
+**Demo users** (created by `migrate.py`):
+
+| Username | Password | Team | Role |
+|---|---|---|---|
+| admin | admin123 | — | admin |
+| alice.jones | pass123 | network.team | agent |
+| bob.smith | pass123 | sysadmin | agent |
+| carol.white | pass123 | helpdesk | agent |
+| dave.sec | pass123 | security | agent |
+| eve.devops | pass123 | devops | agent |
+| frank.field | pass123 | field.support | agent |
+
+**Features:**
+
+- **Dashboard** — open/escalated/SLA-breached stats, recent tickets at a glance
+- **All Tickets** — filterable by status, priority, category; searchable by title
+- **My Tickets** — tickets assigned to the logged-in user
+- **Team Tickets** — tickets assigned to the user's team
+- **Ticket detail** — inline status and assignee editing without closing the modal
+- **Create / Edit / Delete** — full CRUD with toast notifications on every action
+- **Sidebar badges** — live ticket counts per view, updated after every mutation
+- **Dark / Light mode** — toggle in the sidebar
+- **JWT auth** — token stored in localStorage; auto-redirects on expiry
+
+The UI is a single file at `frontend/dist/index.html`, tracked in git and served statically. No npm, no webpack, no build pipeline.
+
+---
+
 ### REST API Endpoints
 
 ```
-GET    /tickets              List all tickets (filterable by status, priority, category)
+POST   /auth/login           Authenticate and receive a JWT token
+GET    /auth/me              Get the current user's profile
+
+GET    /tickets              List all tickets (filterable by status, priority, category, assignee)
 POST   /tickets              Create a ticket manually
 GET    /tickets/{id}         Get ticket detail with full audit trail
 PATCH  /tickets/{id}         Update status/assignee/priority
