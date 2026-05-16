@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SupportOps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+:root {
+  --bg:       #0f1117;
+  --surface:  #1a1d27;
+  --border:   #2a2d3a;
+  --text:     #e8eaf0;
+  --muted:    #6b7080;
+  --accent:   #4f8ef7;
+  --accent2:  #7c5cfc;
+  --success:  #34d399;
+  --warning:  #fbbf24;
+  --danger:   #f87171;
+  --orange:   #fb923c;
+  --radius:   10px;
+  --font:     'DM Sans', sans-serif;
+  --mono:     'DM Mono', monospace;
+}
+.light {
+  --bg:      #f4f5f7;
+  --surface: #ffffff;
+  --border:  #e2e4ea;
+  --text:    #1a1d27;
+  --muted:   #6b7080;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+button { font-family: var(--font); cursor: pointer; }
+input, select, textarea { font-family: var(--font); }
+
+/* Layout */
+.layout { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 240px; min-height: 100vh; background: var(--surface);
+  border-right: 1px solid var(--border); padding: 0; display: flex;
+  flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
+}
+.main { margin-left: 240px; flex: 1; padding: 32px; }
+
+/* Sidebar */
+.logo {
+  padding: 24px 20px 20px;
+  font-size: 17px; font-weight: 600; letter-spacing: -0.3px;
+  border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px;
+}
+.logo-icon { font-size: 20px; }
+.nav { padding: 12px 10px; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
+  color: var(--muted); transition: all .15s; margin-bottom: 2px; border: none;
+  background: none; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--border); color: var(--text); }
+.nav-item.active { background: rgba(79,142,247,.15); color: var(--accent); }
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.sidebar-footer {
+  padding: 16px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+}
+.user-chip {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  background: var(--bg); border-radius: 8px; margin-bottom: 10px;
+}
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: white; flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-team { font-size: 11px; color: var(--muted); }
+
+/* Top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 28px;
+}
+.page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px; font-size: 14px;
+  font-weight: 500; border: none; transition: all .15s;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: #3a7de0; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+.btn-danger { background: var(--danger); color: white; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px;
+}
+.stat-label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.stat-value { font-size: 28px; font-weight: 600; letter-spacing: -1px; }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* Ticket table */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+table { width: 100%; border-collapse: collapse; }
+th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); background: var(--bg); }
+td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(79,142,247,.04); }
+.ticket-title { font-weight: 500; color: var(--text); cursor: pointer; }
+.ticket-title:hover { color: var(--accent); }
+.ticket-id { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; padding: 3px 8px;
+  border-radius: 5px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px;
+}
+.badge-critical { background: rgba(248,113,113,.15); color: var(--danger); }
+.badge-high     { background: rgba(251,146,60,.15);  color: var(--orange); }
+.badge-medium   { background: rgba(251,191,36,.15);  color: var(--warning); }
+.badge-low      { background: rgba(52,211,153,.15);  color: var(--success); }
+.badge-open        { background: rgba(79,142,247,.15);  color: var(--accent); }
+.badge-in_progress { background: rgba(124,92,252,.15);  color: var(--accent2); }
+.badge-escalated   { background: rgba(248,113,113,.15);  color: var(--danger); }
+.badge-resolved    { background: rgba(52,211,153,.15);  color: var(--success); }
+.badge-closed      { background: rgba(107,112,128,.15);  color: var(--muted); }
+
+/* Search & filters */
+.search-input {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-size: 13px; width: 220px;
+  outline: none; transition: border-color .15s;
+}
+.search-input:focus { border-color: var(--accent); }
+.filter-select {
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-size: 13px; outline: none;
+  cursor: pointer;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+  backdrop-filter: blur(4px);
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 28px; width: 540px; max-width: 95vw;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; letter-spacing: -0.3px; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+.form-input {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--bg); color: var(--text);
+  font-size: 14px; outline: none; transition: border-color .15s;
+}
+.form-input:focus { border-color: var(--accent); }
+textarea.form-input { resize: vertical; min-height: 80px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+/* Login */
+.login-wrap {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+}
+.login-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 40px; width: 380px;
+}
+.login-logo { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
+.login-sub { font-size: 14px; color: var(--muted); margin-bottom: 32px; }
+.login-error { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3); color: var(--danger); padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.demo-accounts { margin-top: 24px; padding: 14px; background: var(--bg); border-radius: 8px; font-size: 12px; color: var(--muted); }
+.demo-accounts b { color: var(--text); }
+
+/* Theme toggle */
+.theme-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 16px; color: var(--text); }
+.theme-btn:hover { border-color: var(--muted); }
+
+/* Ticket detail panel */
+.detail-panel { padding: 20px; }
+.detail-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 20px; }
+.detail-field { background: var(--bg); border-radius: 8px; padding: 12px; }
+.detail-field-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+.detail-field-value { font-size: 13px; font-weight: 500; }
+.events-list { border-top: 1px solid var(--border); padding-top: 16px; }
+.event-item { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.event-item:last-child { border-bottom: none; }
+.event-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 5px; flex-shrink: 0; }
+.event-content { flex: 1; }
+.event-type { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: var(--accent); }
+.event-msg { font-size: 13px; color: var(--text); margin-top: 2px; }
+.event-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* Pagination */
+.pagination { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border); justify-content: flex-end; }
+.page-btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; }
+.page-btn:disabled { opacity: .4; cursor: not-allowed; }
+.page-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+/* Empty state */
+.empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-text { font-size: 14px; }
+
+/* Loading */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast notifications */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 500;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  pointer-events: all; min-width: 240px; max-width: 340px;
+  animation: toast-in .25s cubic-bezier(.34,1.56,.64,1);
+}
+.toast.hiding { animation: toast-out .2s ease forwards; }
+.toast-success { border-left: 3px solid var(--success); }
+.toast-error   { border-left: 3px solid var(--danger); }
+.toast-info    { border-left: 3px solid var(--accent); }
+.toast-icon { font-size: 15px; flex-shrink: 0; }
+.toast-msg { flex: 1; }
+.toast-close { background: none; border: none; color: var(--muted); font-size: 14px; padding: 0; line-height: 1; cursor: pointer; }
+.toast-close:hover { color: var(--text); }
+@keyframes toast-in  { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to   { opacity: 0; transform: translateY(8px) scale(.96); } }
+
+/* Nav badge (ticket counter) */
+.nav-badge {
+  margin-left: auto; background: rgba(79,142,247,.2); color: var(--accent);
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px;
+  min-width: 18px; text-align: center;
+}
+.nav-item.active .nav-badge { background: rgba(79,142,247,.35); }
+
+/* Inline edit in detail modal */
+.inline-edit-field { display: flex; align-items: center; gap: 6px; }
+.inline-select {
+  padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); font-size: 13px; outline: none;
+  cursor: pointer; transition: border-color .15s;
+}
+.inline-select:focus { border-color: var(--accent); }
+.save-inline-btn {
+  padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  background: var(--accent); color: white; border: none; cursor: pointer;
+  transition: background .15s;
+}
+.save-inline-btn:hover { background: #3a7de0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+const API = window.location.origin;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmt(dt) {
+  if (!dt) return '—';
+  return new Date(dt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function initials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+}
+async function apiFetch(path, opts={}) {
+  const token = localStorage.getItem('token');
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts.headers||{}) },
+  });
+  if (res.status === 401) { localStorage.clear(); window.location.reload(); }
+  if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.detail || res.statusText); }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+// ── Toast System ──────────────────────────────────────────────────────────────
+
+const ToastContext = React.createContext(null);
+
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+
+  function addToast(msg, type = 'success') {
+    const id = Date.now() + Math.random();
+    setToasts(ts => [...ts, { id, msg, type }]);
+    setTimeout(() => removeToast(id), 3500);
+  }
+
+  function removeToast(id) {
+    setToasts(ts => ts.map(t => t.id === id ? { ...t, hiding: true } : t));
+    setTimeout(() => setToasts(ts => ts.filter(t => t.id !== id)), 220);
+  }
+
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+
+  return (
+    <ToastContext.Provider value={addToast}>
+      {children}
+      <div className="toast-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast toast-${t.type}${t.hiding ? ' hiding' : ''}`}>
+            <span className="toast-icon">{icons[t.type]}</span>
+            <span className="toast-msg">{t.msg}</span>
+            <button className="toast-close" onClick={() => removeToast(t.id)}>✕</button>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+function useToast() { return React.useContext(ToastContext); }
+
+
+
+function PriorityBadge({ p }) {
+  return <span className={`badge badge-${p}`}>{p}</span>;
+}
+function StatusBadge({ s }) {
+  const label = s?.replace('_', ' ');
+  return <span className={`badge badge-${s}`}>{label}</span>;
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+
+function Login({ onLogin }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
+
+  async function submit(e) {
+    e.preventDefault(); setError(''); setLoading(true);
+    try {
+      const form = new FormData();
+      form.append('username', username); form.append('password', password);
+      const res = await fetch(API + '/auth/login', { method: 'POST', body: form });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.detail); }
+      const data = await res.json();
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      onLogin(data.user);
+    } catch(err) { setError(err.message); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo">⚙️ SupportOps</div>
+        <div className="login-sub">IT Support Management Platform</div>
+        {error && <div className="login-error">⚠️ {error}</div>}
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label className="form-label">Username</label>
+            <input className="form-input" value={username} onChange={e=>setUsername(e.target.value)} required autoFocus placeholder="e.g. alice.jones"/>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input className="form-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="••••••••"/>
+          </div>
+          <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'11px'}} disabled={loading}>
+            {loading ? <span className="spinner"/> : 'Sign in'}
+          </button>
+        </form>
+        <div className="demo-accounts">
+          <b>Demo accounts</b> (password: <b>pass123</b>)<br/>
+          alice.jones · bob.smith · carol.white · dave.sec<br/>
+          <b>Admin:</b> admin / admin123
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Create/Edit Ticket Modal ──────────────────────────────────────────────────
+
+function TicketModal({ ticket, lookups, onClose, onSave }) {
+  const isEdit = !!ticket?.id;
+  const toast  = useToast();
+  const [form, setForm] = useState({
+    title:       ticket?.title       || '',
+    description: ticket?.description || '',
+    priority:    ticket?.priority    || 'medium',
+    category:    ticket?.category    || 'other',
+    status:      ticket?.status      || 'open',
+    assignee:    ticket?.assignee    || '',
+    source:      ticket?.source      || 'manual',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+
+  function set(k) { return e => setForm(f => ({...f, [k]: e.target.value})); }
+
+  async function submit(e) {
+    e.preventDefault(); setError(''); setLoading(true);
+    try {
+      const payload = { ...form, assignee: form.assignee || undefined };
+      if (isEdit) {
+        await apiFetch(`/tickets/${ticket.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+        toast(`Ticket #${ticket.id} updated`, 'success');
+      } else {
+        await apiFetch('/tickets', { method: 'POST', body: JSON.stringify(payload) });
+        toast('Ticket created successfully', 'success');
+      }
+      onSave();
+    } catch(err) { setError(err.message); toast(err.message, 'error'); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">{isEdit ? `Edit Ticket #${ticket.id}` : 'New Ticket'}</div>
+        {error && <div className="login-error">⚠️ {error}</div>}
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label className="form-label">Title *</label>
+            <input className="form-input" value={form.title} onChange={set('title')} required minLength={5} placeholder="Brief description of the issue"/>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Description</label>
+            <textarea className="form-input" value={form.description} onChange={set('description')} placeholder="Detailed description, steps to reproduce, impact..."/>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Priority</label>
+              <select className="form-input" value={form.priority} onChange={set('priority')}>
+                {lookups.priorities?.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select className="form-input" value={form.category} onChange={set('category')}>
+                {lookups.categories?.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            {isEdit && (
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select className="form-input" value={form.status} onChange={set('status')}>
+                  {lookups.statuses?.map(s => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Assignee</label>
+              <input className="form-input" value={form.assignee} onChange={set('assignee')} placeholder="username or team"/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Source</label>
+              <select className="form-input" value={form.source} onChange={set('source')}>
+                {lookups.sources?.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? <span className="spinner"/> : (isEdit ? 'Save changes' : 'Create ticket')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Ticket Detail Modal ───────────────────────────────────────────────────────
+
+function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefresh }) {
+  const toast = useToast();
+  const [ticket, setTicket] = useState(initialTicket);
+  const [editingStatus,   setEditingStatus]   = useState(false);
+  const [editingAssignee, setEditingAssignee] = useState(false);
+  const [draftStatus,   setDraftStatus]   = useState(initialTicket.status);
+  const [draftAssignee, setDraftAssignee] = useState(initialTicket.assignee || '');
+  const [saving, setSaving] = useState(false);
+
+  async function patchField(patch, label) {
+    setSaving(true);
+    try {
+      const updated = await apiFetch(`/tickets/${ticket.id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+      setTicket(updated);
+      onRefresh();
+      toast(`${label} updated`, 'success');
+    } catch(err) { toast(err.message, 'error'); }
+    setSaving(false);
+  }
+
+  async function saveStatus() {
+    await patchField({ status: draftStatus }, 'Status');
+    setEditingStatus(false);
+  }
+
+  async function saveAssignee() {
+    await patchField({ assignee: draftAssignee || null }, 'Assignee');
+    setEditingAssignee(false);
+  }
+
+  async function deleteTicket() {
+    if (!confirm('Delete this ticket?')) return;
+    await apiFetch(`/tickets/${ticket.id}`, { method: 'DELETE' });
+    toast(`Ticket #${ticket.id} deleted`, 'info');
+    onClose(); onRefresh();
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="modal" style={{width:'620px'}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'16px',gap:'16px'}}>
+          <div>
+            <div style={{fontSize:'12px',fontFamily:'var(--mono)',color:'var(--muted)',marginBottom:'4px'}}>#{ticket.id}</div>
+            <div className="modal-title" style={{marginBottom:0}}>{ticket.title}</div>
+          </div>
+          <div style={{display:'flex',gap:'8px',flexShrink:0}}>
+            <button className="btn btn-ghost btn-sm" onClick={() => { onClose(); onEdit(ticket); }}>Edit</button>
+            <button className="btn btn-danger btn-sm" onClick={deleteTicket}>Delete</button>
+            <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+          </div>
+        </div>
+        <div className="detail-panel" style={{padding:0}}>
+          <div className="detail-meta">
+            <div className="detail-field"><div className="detail-field-label">Priority</div><div className="detail-field-value"><PriorityBadge p={ticket.priority}/></div></div>
+
+            {/* Inline status edit */}
+            <div className="detail-field">
+              <div className="detail-field-label">Status</div>
+              <div className="detail-field-value">
+                {editingStatus ? (
+                  <div className="inline-edit-field">
+                    <select className="inline-select" value={draftStatus} onChange={e=>setDraftStatus(e.target.value)}>
+                      {lookups.statuses?.map(s => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
+                    </select>
+                    <button className="save-inline-btn" disabled={saving} onClick={saveStatus}>{saving ? '…' : 'Save'}</button>
+                    <button className="toast-close" onClick={()=>{setEditingStatus(false);setDraftStatus(ticket.status);}}>✕</button>
+                  </div>
+                ) : (
+                  <div className="inline-edit-field" onClick={()=>setEditingStatus(true)} style={{cursor:'pointer',gap:'8px'}}>
+                    <StatusBadge s={ticket.status}/>
+                    <span style={{fontSize:'10px',color:'var(--muted)'}}>✏️</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="detail-field"><div className="detail-field-label">Category</div><div className="detail-field-value">{ticket.category}</div></div>
+
+            {/* Inline assignee edit */}
+            <div className="detail-field">
+              <div className="detail-field-label">Assignee</div>
+              <div className="detail-field-value">
+                {editingAssignee ? (
+                  <div className="inline-edit-field">
+                    <input
+                      className="inline-select" style={{flex:1}}
+                      value={draftAssignee} onChange={e=>setDraftAssignee(e.target.value)}
+                      placeholder="username or team"
+                    />
+                    <button className="save-inline-btn" disabled={saving} onClick={saveAssignee}>{saving ? '…' : 'Save'}</button>
+                    <button className="toast-close" onClick={()=>{setEditingAssignee(false);setDraftAssignee(ticket.assignee||'');}}>✕</button>
+                  </div>
+                ) : (
+                  <div className="inline-edit-field" onClick={()=>setEditingAssignee(true)} style={{cursor:'pointer',gap:'8px'}}>
+                    <span>{ticket.assignee || <span style={{color:'var(--muted)'}}>—</span>}</span>
+                    <span style={{fontSize:'10px',color:'var(--muted)'}}>✏️</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="detail-field"><div className="detail-field-label">Reporter</div><div className="detail-field-value">{ticket.reporter || '—'}</div></div>
+            <div className="detail-field"><div className="detail-field-label">Source</div><div className="detail-field-value">{ticket.source}</div></div>
+            <div className="detail-field"><div className="detail-field-label">Created</div><div className="detail-field-value" style={{fontSize:'12px'}}>{fmt(ticket.created_at)}</div></div>
+            <div className="detail-field"><div className="detail-field-label">Resolved</div><div className="detail-field-value" style={{fontSize:'12px'}}>{fmt(ticket.resolved_at)}</div></div>
+          </div>
+          {ticket.description && (
+            <div style={{marginBottom:'20px',padding:'14px',background:'var(--bg)',borderRadius:'8px',fontSize:'13px',lineHeight:'1.6'}}>
+              {ticket.description}
+            </div>
+          )}
+          {ticket.sla_breached && (
+            <div style={{background:'rgba(248,113,113,.1)',border:'1px solid rgba(248,113,113,.3)',borderRadius:'8px',padding:'10px 14px',fontSize:'13px',color:'var(--danger)',marginBottom:'16px'}}>
+              ⚠️ SLA Breached
+            </div>
+          )}
+          {ticket.events?.length > 0 && (
+            <div className="events-list">
+              <div style={{fontSize:'12px',fontWeight:'600',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.4px',marginBottom:'12px'}}>Audit Trail</div>
+              {ticket.events.map(ev => (
+                <div className="event-item" key={ev.id}>
+                  <div className="event-dot"/>
+                  <div className="event-content">
+                    <div className="event-type">{ev.event_type}</div>
+                    {ev.message && <div className="event-msg">{ev.message}</div>}
+                    <div className="event-time">{fmt(ev.created_at)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Ticket List ───────────────────────────────────────────────────────────────
+
+function TicketList({ user, lookups, view, onTicketChange }) {
+  const [tickets, setTickets]     = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
+  const [filterStatus, setFS]     = useState('');
+  const [filterPriority, setFP]   = useState('');
+  const [filterCategory, setFC]   = useState('');
+  const [page, setPage]           = useState(0);
+  const [selected, setSelected]   = useState(null);
+  const [editing, setEditing]     = useState(null);
+  const [creating, setCreating]   = useState(false);
+  const limit = 20;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit, offset: page * limit });
+      if (search)         params.set('search', search);
+      if (filterStatus)   params.set('status', filterStatus);
+      if (filterPriority) params.set('priority', filterPriority);
+      if (filterCategory) params.set('category', filterCategory);
+      if (view === 'mine') params.set('assignee', user.username);
+      if (view === 'team' && user.team) params.set('assignee', user.team);
+      const data = await apiFetch(`/tickets?${params}`);
+      setTickets(data);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  }, [search, filterStatus, filterPriority, filterCategory, page, view, user]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Reload selected ticket when editing closes
+  async function reloadSelected(id) {
+    const t = await apiFetch(`/tickets/${id}`);
+    setSelected(t);
+  }
+
+  const title = view==='mine' ? 'My Tickets' : view==='team' ? 'My Team\'s Tickets' : 'All Tickets';
+
+  return (
+    <div>
+      <div className="topbar">
+        <div className="page-title">{title}</div>
+        <div className="topbar-actions">
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>+ New Ticket</button>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <div className="table-header">
+          <input className="search-input" placeholder="🔍 Search tickets..." value={search} onChange={e=>{setSearch(e.target.value);setPage(0);}}/>
+          <select className="filter-select" value={filterStatus} onChange={e=>{setFS(e.target.value);setPage(0);}}>
+            <option value="">All statuses</option>
+            {lookups.statuses?.map(s => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
+          </select>
+          <select className="filter-select" value={filterPriority} onChange={e=>{setFP(e.target.value);setPage(0);}}>
+            <option value="">All priorities</option>
+            {lookups.priorities?.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <select className="filter-select" value={filterCategory} onChange={e=>{setFC(e.target.value);setPage(0);}}>
+            <option value="">All categories</option>
+            {lookups.categories?.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        {loading ? (
+          <div style={{padding:'40px',textAlign:'center'}}><span className="spinner"/></div>
+        ) : tickets.length === 0 ? (
+          <div className="empty"><div className="empty-icon">📭</div><div className="empty-text">No tickets found</div></div>
+        ) : (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Title</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Category</th>
+                  <th>Assignee</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tickets.map(t => (
+                  <tr key={t.id}>
+                    <td><span className="ticket-id">#{t.id}</span></td>
+                    <td>
+                      <div className="ticket-title" onClick={() => setSelected(t)}>{t.title}</div>
+                      {t.sla_breached && <span style={{fontSize:'10px',color:'var(--danger)',marginTop:'2px',display:'block'}}>⚠ SLA Breached</span>}
+                    </td>
+                    <td><PriorityBadge p={t.priority}/></td>
+                    <td><StatusBadge s={t.status}/></td>
+                    <td style={{fontSize:'12px',color:'var(--muted)'}}>{t.category}</td>
+                    <td style={{fontSize:'12px'}}>{t.assignee || <span style={{color:'var(--muted)'}}>—</span>}</td>
+                    <td style={{fontSize:'11px',color:'var(--muted)',fontFamily:'var(--mono)'}}>{fmt(t.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="pagination">
+              <span style={{fontSize:'12px',color:'var(--muted)',marginRight:'auto'}}>{tickets.length} tickets</span>
+              <button className="page-btn" disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Prev</button>
+              <span style={{fontSize:'13px',padding:'0 4px'}}>Page {page+1}</span>
+              <button className="page-btn" disabled={tickets.length<limit} onClick={()=>setPage(p=>p+1)}>Next →</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {selected && (
+        <TicketDetail
+          ticket={selected} lookups={lookups}
+          onClose={() => setSelected(null)}
+          onEdit={t => { setSelected(null); setEditing(t); }}
+          onRefresh={() => { load(); onTicketChange?.(); }}
+        />
+      )}
+      {editing && (
+        <TicketModal
+          ticket={editing} lookups={lookups}
+          onClose={() => setEditing(null)}
+          onSave={() => { setEditing(null); load(); onTicketChange?.(); reloadSelected(editing.id).catch(()=>{}); }}
+        />
+      )}
+      {creating && (
+        <TicketModal
+          lookups={lookups}
+          onClose={() => setCreating(false)}
+          onSave={() => { setCreating(false); load(); onTicketChange?.(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+function Dashboard({ user, lookups, onTicketChange }) {
+  const [stats, setStats]   = useState(null);
+  const [recent, setRecent] = useState([]);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    apiFetch('/tickets/stats').then(setStats).catch(console.error);
+    apiFetch('/tickets?limit=5').then(setRecent).catch(console.error);
+  }, []);
+
+  const statCards = stats ? [
+    { label: 'Open',        value: stats.open,        color: 'var(--accent)',  sub: 'awaiting action' },
+    { label: 'In Progress', value: stats.in_progress,  color: 'var(--accent2)', sub: 'being worked on' },
+    { label: 'Escalated',   value: stats.escalated,   color: 'var(--danger)',  sub: 'needs attention' },
+    { label: 'SLA Breached',value: stats.sla_breached, color: 'var(--orange)', sub: 'past deadline' },
+    { label: 'Resolved',    value: stats.resolved,    color: 'var(--success)', sub: 'this period' },
+    { label: 'My Tickets',  value: stats.my_tickets,  color: 'var(--warning)', sub: 'assigned to me' },
+  ] : [];
+
+  return (
+    <div>
+      <div className="topbar">
+        <div>
+          <div className="page-title">Dashboard</div>
+          <div style={{fontSize:'13px',color:'var(--muted)',marginTop:'4px'}}>Welcome back, {user.full_name || user.username}</div>
+        </div>
+        <button className="btn btn-primary" onClick={() => setCreating(true)}>+ New Ticket</button>
+      </div>
+      <div className="stat-grid">
+        {statCards.map(s => (
+          <div className="stat-card" key={s.label}>
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-value" style={{color: s.color}}>{s.value ?? <span className="spinner"/>}</div>
+            <div className="stat-sub">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div className="table-wrap">
+        <div className="table-header" style={{justifyContent:'space-between'}}>
+          <span style={{fontWeight:'600',fontSize:'14px'}}>Recent Tickets</span>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Priority</th><th>Status</th><th>Created</th></tr></thead>
+          <tbody>
+            {recent.map(t => (
+              <tr key={t.id}>
+                <td><span className="ticket-id">#{t.id}</span></td>
+                <td><span className="ticket-title">{t.title}</span></td>
+                <td><PriorityBadge p={t.priority}/></td>
+                <td><StatusBadge s={t.status}/></td>
+                <td style={{fontSize:'11px',color:'var(--muted)',fontFamily:'var(--mono)'}}>{fmt(t.created_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {creating && (
+        <TicketModal lookups={lookups} onClose={() => setCreating(false)} onSave={() => { setCreating(false); apiFetch('/tickets/stats').then(setStats); apiFetch('/tickets?limit=5').then(setRecent); onTicketChange?.(); }}/>
+      )}
+    </div>
+  );
+}
+
+// ── App Shell ─────────────────────────────────────────────────────────────────
+
+function App() {
+  const [user, setUser]       = useState(() => { try { return JSON.parse(localStorage.getItem('user')); } catch{ return null; } });
+  const [view, setView]       = useState('dashboard');
+  const [dark, setDark]       = useState(true);
+  const [lookups, setLookups] = useState({});
+  const [navCounts, setNavCounts] = useState({ all: null, mine: null, team: null });
+
+  useEffect(() => {
+    document.body.className = dark ? '' : 'light';
+  }, [dark]);
+
+  useEffect(() => {
+    if (user) {
+      apiFetch('/tickets/lookup-values').then(setLookups).catch(console.error);
+      loadNavCounts();
+    }
+  }, [user]);
+
+  async function loadNavCounts() {
+    if (!user) return;
+    try {
+      const [all, mine, stats] = await Promise.all([
+        apiFetch('/tickets?limit=1').catch(()=>[]),
+        apiFetch(`/tickets?assignee=${encodeURIComponent(user.username)}&limit=1`).catch(()=>[]),
+        apiFetch('/tickets/stats').catch(()=>null),
+      ]);
+      // "all" count from stats, mine count from stats.my_tickets
+      setNavCounts({
+        all:  stats ? (stats.open + stats.in_progress + stats.escalated) : '?',
+        mine: stats?.my_tickets ?? '?',
+        team: null, // team count loaded separately below
+      });
+      if (user.team) {
+        // Team tickets: fetch with assignee=team name (the correct field for team-based filtering)
+        const teamData = await apiFetch(`/tickets?limit=1000`).catch(()=>[]);
+        const teamCount = Array.isArray(teamData)
+          ? teamData.filter(t => t.team === user.team || t.assignee === user.team).length
+          : null;
+        setNavCounts(c => ({ ...c, team: teamCount }));
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  function logout() {
+    localStorage.clear(); setUser(null);
+  }
+
+  if (!user) return <Login onLogin={u => { setUser(u); }}/>;
+
+  const nav = [
+    { id: 'dashboard', icon: '📊', label: 'Dashboard',      count: null },
+    { id: 'all',       icon: '🎫', label: 'All Tickets',    count: navCounts.all },
+    { id: 'mine',      icon: '👤', label: 'My Tickets',     count: navCounts.mine },
+    ...(user.team ? [{ id: 'team', icon: '👥', label: 'Team Tickets', count: navCounts.team }] : []),
+  ];
+
+  return (
+    <ToastProvider>
+    <div className="layout">
+      <aside className="sidebar">
+        <div className="logo"><span className="logo-icon">⚙️</span>SupportOps</div>
+        <nav className="nav">
+          {nav.map(n => (
+            <button key={n.id} className={`nav-item ${view===n.id?'active':''}`} onClick={() => setView(n.id)}>
+              <span className="nav-icon">{n.icon}</span>
+              {n.label}
+              {n.count !== null && n.count !== undefined && (
+                <span className="nav-badge">{n.count}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="user-chip">
+            <div className="avatar">{initials(user.full_name || user.username)}</div>
+            <div className="user-info">
+              <div className="user-name">{user.full_name || user.username}</div>
+              <div className="user-team">{user.team || user.role}</div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:'8px'}}>
+            <button className="theme-btn" style={{flex:1}} onClick={() => setDark(d => !d)}>{dark ? '☀️ Light' : '🌙 Dark'}</button>
+            <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
+          </div>
+        </div>
+      </aside>
+      <main className="main">
+        {view === 'dashboard' && <Dashboard user={user} lookups={lookups} onTicketChange={loadNavCounts}/>}
+        {(view === 'all' || view === 'mine' || view === 'team') && <TicketList user={user} lookups={lookups} view={view} onTicketChange={loadNavCounts}/>}
+      </main>
+    </div>
+    </ToastProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
