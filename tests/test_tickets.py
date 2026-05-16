@@ -1,8 +1,8 @@
 """
 test_tickets.py — Integration tests for the tickets API.
 
-Uses SQLite in-memory for speed. Lookup tables are seeded in the
-fixture so tests work without SQL Server.
+Uses SQLite in-memory. Seeds lookup tables and a test user so
+JWT authentication works without SQL Server.
 
 Run with:
     docker compose exec api pytest tests/ -v
@@ -15,10 +15,13 @@ from sqlalchemy.orm import sessionmaker
 
 from api.main import app
 from api.database import Base, get_db
-from api.models import TicketPriority, TicketStatus, TicketCategory, TicketSource
+from api.auth import hash_password, create_access_token
+from api.models import (
+    TicketPriority, TicketStatus, TicketCategory, TicketSource,
+    Team, User,
+)
 
 TEST_DB_URL = "sqlite:///./test_supportops.db"
-
 engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -32,7 +35,6 @@ def override_get_db():
 
 
 def _seed_lookups(db):
-    """Populate lookup tables so the router can resolve IDs."""
     for name in ["critical", "high", "medium", "low"]:
         db.add(TicketPriority(name=name))
     for name in ["open", "in_progress", "escalated", "resolved", "closed"]:
@@ -41,34 +43,52 @@ def _seed_lookups(db):
         db.add(TicketCategory(name=name))
     for name in ["manual", "auto", "escalation"]:
         db.add(TicketSource(name=name))
+    db.add(Team(name="helpdesk"))
     db.commit()
+
+    # Create a test user and return a valid JWT for it
+    team = db.query(Team).filter(Team.name == "helpdesk").first()
+    user = User(
+        username        = "test.user",
+        full_name       = "Test User",
+        hashed_password = hash_password("testpass"),
+        role            = "agent",
+        team_id         = team.id,
+    )
+    db.add(user)
+    db.commit()
+
+    return create_access_token({"sub": "test.user"})
 
 
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
     db = TestingSession()
-    _seed_lookups(db)
+    token = _seed_lookups(db)
     db.close()
     app.dependency_overrides[get_db] = override_get_db
-    yield
+    yield token
     Base.metadata.drop_all(bind=engine)
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
-def client():
-    return TestClient(app)
+def client(setup_db):
+    token = setup_db
+    c = TestClient(app)
+    c.headers = {"Authorization": f"Bearer {token}"}
+    return c
 
 
 @pytest.fixture
 def sample_ticket(client):
     resp = client.post("/tickets", json={
-        "title": "Test ticket for unit tests",
+        "title":       "Test ticket for unit tests",
         "description": "Created by pytest",
-        "priority": "medium",
-        "category": "software",
-        "reporter": "test_runner",
+        "priority":    "medium",
+        "category":    "software",
+        "reporter":    "test_runner",
     })
     assert resp.status_code == 201
     return resp.json()
@@ -79,7 +99,7 @@ def sample_ticket(client):
 class TestCreateTicket:
     def test_create_valid_ticket(self, client):
         resp = client.post("/tickets", json={
-            "title": "Printer offline on floor 2",
+            "title":    "Printer offline on floor 2",
             "priority": "high",
             "category": "hardware",
         })
@@ -92,13 +112,13 @@ class TestCreateTicket:
 
     def test_create_ticket_with_all_fields(self, client):
         resp = client.post("/tickets", json={
-            "title": "VPN down for entire office",
+            "title":       "VPN down for entire office",
             "description": "All users affected since 9am",
-            "priority": "critical",
-            "category": "network",
-            "assignee": "network.team",
-            "reporter": "sysadmin1",
-            "source": "auto",
+            "priority":    "critical",
+            "category":    "network",
+            "assignee":    "network.team",
+            "reporter":    "sysadmin1",
+            "source":      "auto",
         })
         assert resp.status_code == 201
         data = resp.json()
@@ -112,17 +132,23 @@ class TestCreateTicket:
 
     def test_create_ticket_invalid_priority(self, client):
         resp = client.post("/tickets", json={
-            "title": "Valid title here",
+            "title":    "Valid title here",
             "priority": "super_urgent",
         })
-        assert resp.status_code == 400  # Now a 400 from _lookup, not 422
+        assert resp.status_code == 400
 
     def test_create_ticket_invalid_category(self, client):
         resp = client.post("/tickets", json={
-            "title": "Valid title here",
+            "title":    "Valid title here",
             "category": "unknown_category",
         })
         assert resp.status_code == 400
+
+    def test_create_ticket_requires_auth(self):
+        """Unauthenticated requests must return 401."""
+        c = TestClient(app)
+        resp = c.post("/tickets", json={"title": "Should fail"})
+        assert resp.status_code == 401
 
 
 # ── READ ──────────────────────────────────────────────────────────────────────
@@ -155,8 +181,7 @@ class TestReadTickets:
 
     def test_filter_by_priority(self, client):
         client.post("/tickets", json={"title": "Critical network outage now", "priority": "critical", "category": "network"})
-        client.post("/tickets", json={"title": "Low priority cleanup task", "priority": "low", "category": "other"})
-
+        client.post("/tickets", json={"title": "Low priority cleanup task",   "priority": "low",      "category": "other"})
         resp = client.get("/tickets?priority=critical")
         assert resp.status_code == 200
         assert all(t["priority"] == "critical" for t in resp.json())
