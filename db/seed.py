@@ -27,70 +27,76 @@ from api.models import (
 
 # ── Realistic ticket templates ────────────────────────────────────────────────
 
+# ── Real users & teams from migrate.py ───────────────────────────────────────
+# Users:  admin, alice.jones (network.team), bob.smith (sysadmin),
+#         carol.white (helpdesk), dave.sec (security),
+#         eve.devops (devops), frank.field (field.support)
+# Teams:  network.team, sysadmin, helpdesk, security, devops, field.support
+
 TICKET_TEMPLATES = [
-    # Network
-    {"title": "VPN disconnecting every 30 minutes for remote team", "category": "network", "priority": "high", "source": "manual", "reporter": "alice.jones", "assignee": "network.team"},
-    {"title": "Cannot access shared drive from branch office", "category": "network", "priority": "high", "source": "manual", "reporter": "bob.smith", "assignee": "network.team"},
-    {"title": "Wi-Fi dropping on floor 4 — 20 users affected", "category": "network", "priority": "high", "source": "manual", "reporter": "carol.white", "assignee": "network.team"},
-    {"title": "Firewall blocking outbound SMTP traffic", "category": "network", "priority": "critical", "source": "auto", "reporter": "health_monitor", "assignee": "network.team"},
-    {"title": "DNS resolution failing for internal domains", "category": "network", "priority": "critical", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "Latency spike on MPLS link to HQ — 800ms avg", "category": "network", "priority": "high", "source": "auto", "reporter": "health_monitor", "assignee": "network.team"},
-    {"title": "Switch CORE-SW-02 port 12 showing errors", "category": "network", "priority": "medium", "source": "manual", "reporter": "it.manager", "assignee": "network.team"},
+    # Network — assigned to alice.jones or network.team
+    {"title": "VPN disconnecting every 30 minutes for remote team",         "category": "network",     "priority": "high",     "source": "manual", "reporter": "carol.white",  "assignee": "alice.jones"},
+    {"title": "Cannot access shared drive from branch office",               "category": "network",     "priority": "high",     "source": "manual", "reporter": "bob.smith",    "assignee": "network.team"},
+    {"title": "Wi-Fi dropping on floor 4 — 20 users affected",              "category": "network",     "priority": "high",     "source": "manual", "reporter": "frank.field",  "assignee": "alice.jones"},
+    {"title": "Firewall blocking outbound SMTP traffic",                     "category": "network",     "priority": "critical", "source": "auto",   "reporter": "health_monitor","assignee": "network.team"},
+    {"title": "DNS resolution failing for internal domains",                 "category": "network",     "priority": "critical", "source": "auto",   "reporter": "health_monitor","assignee": "alice.jones"},
+    {"title": "Latency spike on MPLS link to HQ — 800ms avg",               "category": "network",     "priority": "high",     "source": "auto",   "reporter": "health_monitor","assignee": "network.team"},
+    {"title": "Switch CORE-SW-02 port 12 showing errors",                   "category": "network",     "priority": "medium",   "source": "manual", "reporter": "admin",         "assignee": "alice.jones"},
 
-    # Software
-    {"title": "Outlook not syncing — calendar missing for 5 users", "category": "software", "priority": "high", "source": "manual", "reporter": "bob.smith", "assignee": "sysadmin1"},
-    {"title": "Excel crashing on open for finance department", "category": "software", "priority": "high", "source": "manual", "reporter": "finance.manager", "assignee": "helpdesk1"},
-    {"title": "Teams calls dropping after 10 minutes", "category": "software", "priority": "medium", "source": "manual", "reporter": "hr.director", "assignee": "helpdesk2"},
-    {"title": "ERP system slow — page load over 30 seconds", "category": "software", "priority": "high", "source": "manual", "reporter": "ops.manager", "assignee": "sysadmin2"},
-    {"title": "Browser extension blocking internal web apps", "category": "software", "priority": "low", "source": "manual", "reporter": "john.doe", "assignee": "helpdesk1"},
-    {"title": "Software license renewal — Adobe CC 25 seats", "category": "software", "priority": "low", "source": "manual", "reporter": "it.manager", "assignee": None},
-    {"title": "Antivirus definitions not updating on 12 workstations", "category": "software", "priority": "medium", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "VoIP softphone not registering after reboot", "category": "software", "priority": "medium", "source": "manual", "reporter": "sales.rep1", "assignee": "helpdesk2"},
+    # Software — assigned to bob.smith (sysadmin) or carol.white (helpdesk)
+    {"title": "Outlook not syncing — calendar missing for 5 users",         "category": "software",    "priority": "high",     "source": "manual", "reporter": "alice.jones",  "assignee": "bob.smith"},
+    {"title": "Excel crashing on open for finance department",               "category": "software",    "priority": "high",     "source": "manual", "reporter": "frank.field",  "assignee": "carol.white"},
+    {"title": "Teams calls dropping after 10 minutes",                      "category": "software",    "priority": "medium",   "source": "manual", "reporter": "eve.devops",   "assignee": "helpdesk"},
+    {"title": "ERP system slow — page load over 30 seconds",               "category": "software",    "priority": "high",     "source": "manual", "reporter": "admin",         "assignee": "bob.smith"},
+    {"title": "Browser extension blocking internal web apps",               "category": "software",    "priority": "low",      "source": "manual", "reporter": "frank.field",  "assignee": "carol.white"},
+    {"title": "Software license renewal — Adobe CC 25 seats",              "category": "software",    "priority": "low",      "source": "manual", "reporter": "admin",         "assignee": None},
+    {"title": "Antivirus definitions not updating on 12 workstations",      "category": "software",    "priority": "medium",   "source": "auto",   "reporter": "health_monitor","assignee": "bob.smith"},
+    {"title": "VoIP softphone not registering after reboot",                "category": "software",    "priority": "medium",   "source": "manual", "reporter": "alice.jones",  "assignee": "helpdesk"},
 
-    # Hardware
-    {"title": "Printer PRTR-FL3 offline — floor 3 team affected", "category": "hardware", "priority": "medium", "source": "manual", "reporter": "mike.chen", "assignee": "field.support"},
-    {"title": "Laptop screen flickering — marketing department", "category": "hardware", "priority": "low", "source": "manual", "reporter": "designer1", "assignee": "field.support"},
-    {"title": "Server rack UPS beeping — battery health warning", "category": "hardware", "priority": "high", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "Workstation failing POST — accounting department", "category": "hardware", "priority": "high", "source": "manual", "reporter": "accountant1", "assignee": "field.support"},
-    {"title": "SAN disk showing predictive failure warnings", "category": "hardware", "priority": "critical", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "Barcode scanners not connecting via USB on dock", "category": "hardware", "priority": "medium", "source": "manual", "reporter": "warehouse.super", "assignee": "field.support"},
-    {"title": "Conference room projector no signal from HDMI", "category": "hardware", "priority": "low", "source": "manual", "reporter": "reception", "assignee": "field.support"},
+    # Hardware — assigned to frank.field or field.support team
+    {"title": "Printer PRTR-FL3 offline — floor 3 team affected",          "category": "hardware",    "priority": "medium",   "source": "manual", "reporter": "carol.white",  "assignee": "frank.field"},
+    {"title": "Laptop screen flickering — marketing department",            "category": "hardware",    "priority": "low",      "source": "manual", "reporter": "eve.devops",   "assignee": "field.support"},
+    {"title": "Server rack UPS beeping — battery health warning",          "category": "hardware",    "priority": "high",     "source": "auto",   "reporter": "health_monitor","assignee": "bob.smith"},
+    {"title": "Workstation failing POST — accounting department",           "category": "hardware",    "priority": "high",     "source": "manual", "reporter": "carol.white",  "assignee": "frank.field"},
+    {"title": "SAN disk showing predictive failure warnings",               "category": "hardware",    "priority": "critical", "source": "auto",   "reporter": "health_monitor","assignee": "bob.smith"},
+    {"title": "Barcode scanners not connecting via USB on dock",            "category": "hardware",    "priority": "medium",   "source": "manual", "reporter": "frank.field",  "assignee": "field.support"},
+    {"title": "Conference room projector no signal from HDMI",              "category": "hardware",    "priority": "low",      "source": "manual", "reporter": "alice.jones",  "assignee": "frank.field"},
 
-    # Performance
-    {"title": "Disk usage on FILESERVER01 at 91%", "category": "performance", "priority": "critical", "source": "auto", "reporter": "health_monitor", "assignee": None},
-    {"title": "CPU usage spike on APP-SERVER-02 — 95% for 20 min", "category": "performance", "priority": "critical", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "Remote desktop slow for warehouse team — 800ms latency", "category": "performance", "priority": "medium", "source": "manual", "reporter": "warehouse.super", "assignee": "sysadmin1"},
-    {"title": "Database query times degraded after index rebuild", "category": "performance", "priority": "high", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin2"},
-    {"title": "RAM usage on WEB-SERVER-01 at 94%", "category": "performance", "priority": "high", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "Backup job taking 14 hours — SLA is 6 hours", "category": "performance", "priority": "medium", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin2"},
-    {"title": "Slow login times — Active Directory response >5s", "category": "performance", "priority": "high", "source": "manual", "reporter": "helpdesk1", "assignee": "sysadmin1"},
+    # Performance — assigned to bob.smith (sysadmin)
+    {"title": "Disk usage on FILESERVER01 at 91%",                         "category": "performance", "priority": "critical", "source": "auto",   "reporter": "health_monitor","assignee": None},
+    {"title": "CPU usage spike on APP-SERVER-02 — 95% for 20 min",         "category": "performance", "priority": "critical", "source": "auto",   "reporter": "health_monitor","assignee": "bob.smith"},
+    {"title": "Remote desktop slow for warehouse team — 800ms latency",    "category": "performance", "priority": "medium",   "source": "manual", "reporter": "frank.field",  "assignee": "sysadmin"},
+    {"title": "Database query times degraded after index rebuild",          "category": "performance", "priority": "high",     "source": "auto",   "reporter": "health_monitor","assignee": "bob.smith"},
+    {"title": "RAM usage on WEB-SERVER-01 at 94%",                         "category": "performance", "priority": "high",     "source": "auto",   "reporter": "health_monitor","assignee": "sysadmin"},
+    {"title": "Backup job taking 14 hours — SLA is 6 hours",               "category": "performance", "priority": "medium",   "source": "auto",   "reporter": "health_monitor","assignee": "bob.smith"},
+    {"title": "Slow login times — Active Directory response >5s",          "category": "performance", "priority": "high",     "source": "manual", "reporter": "carol.white",  "assignee": "bob.smith"},
 
-    # Access
-    {"title": "New hire onboarding — create AD account for Maria Gomez", "category": "access", "priority": "medium", "source": "manual", "reporter": "hr_system", "assignee": "sysadmin2"},
-    {"title": "Password reset request — john.murphy locked out", "category": "access", "priority": "low", "source": "manual", "reporter": "john.murphy", "assignee": "helpdesk1"},
-    {"title": "MFA not working for CEO on mobile device", "category": "access", "priority": "critical", "source": "manual", "reporter": "executive.assistant", "assignee": "sysadmin1"},
-    {"title": "Contractor account access expired — need 30 day extension", "category": "access", "priority": "medium", "source": "manual", "reporter": "project.manager", "assignee": "sysadmin2"},
-    {"title": "Shared mailbox permissions not applying correctly", "category": "access", "priority": "medium", "source": "manual", "reporter": "office.admin", "assignee": "helpdesk2"},
-    {"title": "VPN certificate expired for 3 remote users", "category": "access", "priority": "high", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "Offboarding — revoke all access for Tom Baker", "category": "access", "priority": "high", "source": "manual", "reporter": "hr_system", "assignee": "sysadmin2"},
-    {"title": "SharePoint folder permissions broken after migration", "category": "access", "priority": "medium", "source": "manual", "reporter": "team.lead1", "assignee": "sysadmin2"},
+    # Access — split between carol.white (helpdesk) and bob.smith (sysadmin)
+    {"title": "New hire onboarding — create AD account for Maria Gomez",   "category": "access",      "priority": "medium",   "source": "manual", "reporter": "admin",         "assignee": "bob.smith"},
+    {"title": "Password reset request — john.murphy locked out",           "category": "access",      "priority": "low",      "source": "manual", "reporter": "carol.white",   "assignee": "helpdesk"},
+    {"title": "MFA not working for CEO on mobile device",                  "category": "access",      "priority": "critical", "source": "manual", "reporter": "admin",         "assignee": "bob.smith"},
+    {"title": "Contractor account access expired — need 30 day extension", "category": "access",      "priority": "medium",   "source": "manual", "reporter": "alice.jones",  "assignee": "carol.white"},
+    {"title": "Shared mailbox permissions not applying correctly",         "category": "access",      "priority": "medium",   "source": "manual", "reporter": "frank.field",  "assignee": "helpdesk"},
+    {"title": "VPN certificate expired for 3 remote users",               "category": "access",      "priority": "high",     "source": "auto",   "reporter": "health_monitor","assignee": "alice.jones"},
+    {"title": "Offboarding — revoke all access for Tom Baker",             "category": "access",      "priority": "high",     "source": "manual", "reporter": "admin",         "assignee": "bob.smith"},
+    {"title": "SharePoint folder permissions broken after migration",      "category": "access",      "priority": "medium",   "source": "manual", "reporter": "eve.devops",   "assignee": "carol.white"},
 
-    # Security
-    {"title": "SSL certificate expiring in 7 days — api.internal.company.com", "category": "security", "priority": "high", "source": "auto", "reporter": "health_monitor", "assignee": "devops.team"},
-    {"title": "Suspicious login attempt from unknown IP — 47 failures", "category": "security", "priority": "critical", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "Phishing email reported by 8 employees", "category": "security", "priority": "high", "source": "manual", "reporter": "security.awareness", "assignee": "sysadmin1"},
-    {"title": "Ransomware alert — endpoint quarantined by AV", "category": "security", "priority": "critical", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "USB drive with unknown content found plugged in", "category": "security", "priority": "high", "source": "manual", "reporter": "receptionist", "assignee": "sysadmin1"},
-    {"title": "Firewall rule change audit — unauthorized modification detected", "category": "security", "priority": "critical", "source": "auto", "reporter": "health_monitor", "assignee": "network.team"},
+    # Security — assigned to dave.sec or security team
+    {"title": "SSL certificate expiring in 7 days — api.internal.company.com", "category": "security", "priority": "high",   "source": "auto",   "reporter": "health_monitor","assignee": "eve.devops"},
+    {"title": "Suspicious login attempt from unknown IP — 47 failures",    "category": "security",    "priority": "critical", "source": "auto",   "reporter": "health_monitor","assignee": "dave.sec"},
+    {"title": "Phishing email reported by 8 employees",                    "category": "security",    "priority": "high",     "source": "manual", "reporter": "carol.white",  "assignee": "security"},
+    {"title": "Ransomware alert — endpoint quarantined by AV",             "category": "security",    "priority": "critical", "source": "auto",   "reporter": "health_monitor","assignee": "dave.sec"},
+    {"title": "USB drive with unknown content found plugged in",           "category": "security",    "priority": "high",     "source": "manual", "reporter": "frank.field",  "assignee": "dave.sec"},
+    {"title": "Firewall rule change audit — unauthorized modification",    "category": "security",    "priority": "critical", "source": "auto",   "reporter": "health_monitor","assignee": "security"},
 
-    # Other
-    {"title": "IT asset inventory update — Q2 audit", "category": "other", "priority": "low", "source": "manual", "reporter": "it.manager", "assignee": None},
-    {"title": "Setup new hire workstation — starts Monday", "category": "other", "priority": "medium", "source": "manual", "reporter": "hr_system", "assignee": "field.support"},
-    {"title": "Document disaster recovery procedure for SQL Server", "category": "other", "priority": "low", "source": "manual", "reporter": "it.manager", "assignee": "sysadmin2"},
-    {"title": "Install approved software on dev team laptops x5", "category": "other", "priority": "low", "source": "manual", "reporter": "dev.manager", "assignee": "field.support"},
-    {"title": "Migrate file server data to new NAS — 2TB", "category": "other", "priority": "medium", "source": "manual", "reporter": "it.manager", "assignee": "sysadmin1"},
-    {"title": "Monthly patch cycle — 40 servers pending reboot", "category": "other", "priority": "medium", "source": "auto", "reporter": "health_monitor", "assignee": "sysadmin1"},
-    {"title": "Procure 10 new laptops for sales team expansion", "category": "other", "priority": "low", "source": "manual", "reporter": "sales.manager", "assignee": None},
+    # Other — mix of assignees
+    {"title": "IT asset inventory update — Q2 audit",                      "category": "other",       "priority": "low",      "source": "manual", "reporter": "admin",         "assignee": None},
+    {"title": "Setup new hire workstation — starts Monday",                "category": "other",       "priority": "medium",   "source": "manual", "reporter": "admin",         "assignee": "frank.field"},
+    {"title": "Document disaster recovery procedure for SQL Server",       "category": "other",       "priority": "low",      "source": "manual", "reporter": "bob.smith",    "assignee": "eve.devops"},
+    {"title": "Install approved software on dev team laptops x5",         "category": "other",       "priority": "low",      "source": "manual", "reporter": "eve.devops",   "assignee": "frank.field"},
+    {"title": "Migrate file server data to new NAS — 2TB",                "category": "other",       "priority": "medium",   "source": "manual", "reporter": "admin",         "assignee": "bob.smith"},
+    {"title": "Monthly patch cycle — 40 servers pending reboot",           "category": "other",       "priority": "medium",   "source": "auto",   "reporter": "health_monitor","assignee": "sysadmin"},
+    {"title": "Procure 10 new laptops for sales team expansion",           "category": "other",       "priority": "low",      "source": "manual", "reporter": "admin",         "assignee": None},
 ]
 
 # Status distribution weights (open/in_progress/escalated/resolved/closed)
