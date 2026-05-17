@@ -97,7 +97,7 @@ def seed_lookup_tables():
         print("✅ Lookup tables, teams and users seeded.")
         print("\n👤 Demo accounts:")
         for u in USERS:
-            print(f"   {u['username']:20} password: {u['password']:10} role: {u['role']:6} team: {u['team'] or 'all'}")
+            print(f"   {u['username']:20} password: [REDACTED] role: {u['role']:6} team: {u['team'] or 'all'}")
     finally:
         db.close()
 
