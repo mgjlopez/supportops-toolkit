@@ -40,40 +40,96 @@
           "request": {
             "method": "POST",
             "url": "{{base_url}}/auth/login",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/x-www-form-urlencoded"
-              }
-            ],
+            "header": [{"key": "Content-Type", "value": "application/x-www-form-urlencoded"}],
             "body": {
               "mode": "urlencoded",
               "urlencoded": [
-                {
-                  "key": "username",
-                  "value": "{{username}}",
-                  "type": "text"
-                },
-                {
-                  "key": "password",
-                  "value": "{{password}}",
-                  "type": "text"
-                }
+                {"key": "username", "value": "{{username}}", "type": "text"},
+                {"key": "password", "value": "{{password}}", "type": "text"}
               ]
             },
-            "description": "Login and save JWT token automatically.\n\nSet username/password in collection variables before running.\n\nDemo accounts:\n- alice.jones / pass123 (network team)\n- bob.smith / pass123 (sysadmin)\n- carol.white / pass123 (helpdesk)\n- admin / admin123 (admin)"
+            "description": "Login and save JWT token automatically.\n\nDemo accounts:\n- alice.jones / pass123 (network team)\n- bob.smith / pass123 (sysadmin)\n- carol.white / pass123 (helpdesk)\n- admin / admin123 (admin)"
           },
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Content-Type is JSON', () => pm.response.to.have.header('Content-Type', /json/));",
+                  "",
                   "const data = pm.response.json();",
+                  "",
                   "pm.test('Has access_token', () => pm.expect(data).to.have.property('access_token'));",
+                  "pm.test('Token type is bearer', () => pm.expect(data.token_type).to.eql('bearer'));",
+                  "pm.test('Token is a non-empty string', () => pm.expect(data.access_token).to.be.a('string').and.not.empty);",
+                  "",
+                  "pm.test('User object is present', () => pm.expect(data).to.have.property('user'));",
+                  "pm.test('User has id', () => pm.expect(data.user).to.have.property('id'));",
+                  "pm.test('User has username', () => pm.expect(data.user).to.have.property('username'));",
+                  "pm.test('User has role', () => pm.expect(data.user).to.have.property('role'));",
+                  "pm.test('User role is valid', () => pm.expect(['agent','admin']).to.include(data.user.role));",
+                  "",
                   "pm.collectionVariables.set('jwt_token', data.access_token);",
-                  "pm.collectionVariables.set('current_user', JSON.stringify(data.user));",
-                  "console.log('Token saved. Logged in as:', data.user.username);"
+                  "pm.collectionVariables.set('current_user_id', data.user.id);",
+                  "console.log('Token saved. Logged in as:', data.user.username, '/', data.user.role);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — wrong password (expect 401)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{"key": "Content-Type", "value": "application/x-www-form-urlencoded"}],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "username", "value": "{{username}}", "type": "text"},
+                {"key": "password", "value": "wrongpassword", "type": "text"}
+              ]
+            },
+            "description": "Verifies that incorrect credentials return 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Error detail is present', () => pm.expect(pm.response.json()).to.have.property('detail'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — unknown user (expect 401)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{"key": "Content-Type", "value": "application/x-www-form-urlencoded"}],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "username", "value": "ghost.user", "type": "text"},
+                {"key": "password", "value": "doesntmatter", "type": "text"}
+              ]
+            },
+            "description": "Verifies that a non-existent user returns 401 (not 404 — avoids user enumeration)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Does not leak whether user exists', () => {",
+                  "  const body = JSON.stringify(pm.response.json());",
+                  "  pm.expect(body).to.not.include('not found');",
+                  "});"
                 ]
               }
             }
@@ -84,21 +140,93 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/auth/me",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
-              }
-            ],
-            "description": "Returns the currently authenticated user. Run Login first."
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+            "description": "Returns the currently authenticated user profile. Run Login first."
           },
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('Has username', () => pm.expect(pm.response.json()).to.have.property('username'));"
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const user = pm.response.json();",
+                  "",
+                  "pm.test('Has username', () => pm.expect(user).to.have.property('username'));",
+                  "pm.test('Has role', () => pm.expect(user).to.have.property('role'));",
+                  "pm.test('Has is_active', () => pm.expect(user).to.have.property('is_active'));",
+                  "pm.test('User is active', () => pm.expect(user.is_active).to.be.true);",
+                  "pm.test('Username matches login', () => {",
+                  "  const loggedIn = pm.collectionVariables.get('username');",
+                  "  pm.expect(user.username).to.eql(loggedIn);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current user — no token (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me",
+            "header": [],
+            "description": "Verifies that /auth/me returns 401 when no token is provided."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current user — invalid token (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me",
+            "header": [{"key": "Authorization", "value": "Bearer this.is.not.a.valid.token"}],
+            "description": "Verifies that a malformed or expired token returns 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update profile — phone and timezone",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/auth/me",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1 555 000 1234\",\n  \"timezone\": \"America/Bogota\"\n}"
+            },
+            "description": "Any user can update their own phone and timezone."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const user = pm.response.json();",
+                  "pm.test('Phone was updated', () => pm.expect(user.phone).to.eql('+1 555 000 1234'));",
+                  "pm.test('Timezone was updated', () => pm.expect(user.timezone).to.eql('America/Bogota'));"
                 ]
               }
             }

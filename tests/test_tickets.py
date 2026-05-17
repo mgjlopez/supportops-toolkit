@@ -46,7 +46,6 @@ def _seed_lookups(db):
     db.add(Team(name="helpdesk"))
     db.commit()
 
-    # Create a test user and return a valid JWT for it
     team = db.query(Team).filter(Team.name == "helpdesk").first()
     user = User(
         username        = "test.user",
@@ -55,29 +54,48 @@ def _seed_lookups(db):
         role            = "agent",
         team_id         = team.id,
     )
+    admin = User(
+        username        = "test.admin",
+        full_name       = "Test Admin",
+        hashed_password = hash_password("adminpass"),
+        role            = "admin",
+        team_id         = None,
+    )
     db.add(user)
+    db.add(admin)
     db.commit()
 
-    return create_access_token({"sub": "test.user"})
+    return (
+        create_access_token({"sub": "test.user"}),
+        create_access_token({"sub": "test.admin"}),
+    )
 
 
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
     db = TestingSession()
-    token = _seed_lookups(db)
+    tokens = _seed_lookups(db)
     db.close()
     app.dependency_overrides[get_db] = override_get_db
-    yield token
+    yield tokens
     Base.metadata.drop_all(bind=engine)
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def client(setup_db):
-    token = setup_db
+    token, _ = setup_db
     c = TestClient(app)
     c.headers = {"Authorization": f"Bearer {token}"}
+    return c
+
+
+@pytest.fixture
+def admin_client(setup_db):
+    _, admin_token = setup_db
+    c = TestClient(app)
+    c.headers = {"Authorization": f"Bearer {admin_token}"}
     return c
 
 
@@ -230,4 +248,106 @@ class TestDeleteTicket:
 
     def test_delete_nonexistent_ticket(self, client):
         resp = client.delete("/tickets/99999")
+        assert resp.status_code == 404
+
+
+# ── AUTH ──────────────────────────────────────────────────────────────────────
+
+class TestAuth:
+    def test_login_valid_credentials(self):
+        c = TestClient(app)
+        resp = c.post("/auth/login", data={"username": "test.user", "password": "testpass"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+        assert data["user"]["username"] == "test.user"
+
+    def test_login_wrong_password(self):
+        c = TestClient(app)
+        resp = c.post("/auth/login", data={"username": "test.user", "password": "wrongpass"})
+        assert resp.status_code == 401
+
+    def test_login_unknown_user(self):
+        c = TestClient(app)
+        resp = c.post("/auth/login", data={"username": "ghost.user", "password": "pass"})
+        assert resp.status_code == 401
+
+    def test_login_returns_user_fields(self):
+        c = TestClient(app)
+        resp = c.post("/auth/login", data={"username": "test.user", "password": "testpass"})
+        user = resp.json()["user"]
+        for field in ("id", "username", "full_name", "role"):
+            assert field in user
+
+    def test_me_returns_current_user(self, client):
+        resp = client.get("/auth/me")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["username"] == "test.user"
+        assert data["role"] == "agent"
+
+    def test_me_requires_auth(self):
+        c = TestClient(app)
+        resp = c.get("/auth/me")
+        assert resp.status_code == 401
+
+    def test_me_with_invalid_token(self):
+        c = TestClient(app)
+        c.headers = {"Authorization": "Bearer notavalidtoken"}
+        resp = c.get("/auth/me")
+        assert resp.status_code == 401
+
+    def test_login_token_works_on_protected_endpoint(self):
+        """Token from /auth/login must grant access to /tickets."""
+        c = TestClient(app)
+        login = c.post("/auth/login", data={"username": "test.user", "password": "testpass"})
+        token = login.json()["access_token"]
+        c.headers = {"Authorization": f"Bearer {token}"}
+        resp = c.get("/tickets")
+        assert resp.status_code == 200
+
+
+# ── PROFILE ───────────────────────────────────────────────────────────────────
+
+class TestProfile:
+    def test_update_phone(self, client):
+        resp = client.patch("/auth/me", json={"phone": "+1 555 000 1234"})
+        assert resp.status_code == 200
+        assert resp.json()["phone"] == "+1 555 000 1234"
+
+    def test_update_timezone(self, client):
+        resp = client.patch("/auth/me", json={"timezone": "America/Bogota"})
+        assert resp.status_code == 200
+        assert resp.json()["timezone"] == "America/Bogota"
+
+    def test_update_phone_and_timezone_together(self, client):
+        resp = client.patch("/auth/me", json={"phone": "+57 300 000 0000", "timezone": "America/Bogota"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["phone"] == "+57 300 000 0000"
+        assert data["timezone"] == "America/Bogota"
+
+    def test_agent_cannot_update_full_name(self, client):
+        """Agents can only patch phone/timezone — full_name is admin-only."""
+        resp = client.patch("/auth/me", json={"full_name": "Hacker Name"})
+        # Field is ignored (not in UserProfileUpdate) — response still 200
+        # but full_name must remain unchanged
+        assert resp.status_code == 200
+        assert resp.json()["full_name"] == "Test User"
+
+    def test_admin_can_update_any_user(self, admin_client, client):
+        # Get test.user's id first
+        me = client.get("/auth/me").json()
+        uid = me["id"]
+        resp = admin_client.patch(f"/auth/users/{uid}", json={"full_name": "Updated By Admin"})
+        assert resp.status_code == 200
+        assert resp.json()["full_name"] == "Updated By Admin"
+
+    def test_agent_cannot_update_other_users(self, client):
+        resp = client.patch("/auth/users/1", json={"full_name": "Should Fail"})
+        assert resp.status_code == 403
+
+    def test_admin_update_nonexistent_user(self, admin_client):
+        resp = admin_client.patch("/auth/users/99999", json={"phone": "+1 000"})
         assert resp.status_code == 404

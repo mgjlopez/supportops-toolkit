@@ -10,7 +10,8 @@ Tickets are generated with realistic distributions:
   - Assignees:  real users and teams from migrate.py
 
 Usage:
-    docker compose exec api python db/seed.py
+    docker compose exec api python db/seed.py           # skips if tickets exist
+    docker compose exec api python db/seed.py --force   # wipes tickets and re-seeds
 """
 
 import sys
@@ -122,15 +123,21 @@ SAMPLE_HEALTH_CHECKS = [
 ]
 
 
-def seed():
+def seed(force: bool = False):
     db = SessionLocal()
     try:
         existing = db.query(Ticket).count()
         if existing > 0:
-            print(f"ℹ️  Database already has {existing} tickets. Skipping seed.")
-            print("   To re-seed: docker compose down -v && docker compose up -d")
-            print("   Then run migrate.py and seed.py again.")
-            return
+            if not force:
+                print(f"ℹ️  Database already has {existing} tickets. Skipping seed.")
+                print("   To re-seed without losing users/lookups, run:")
+                print("   docker compose exec api python db/seed.py --force")
+                return
+            print(f"⚠️  --force: deleting {existing} existing tickets and health checks...")
+            db.query(HealthCheck).delete()
+            db.query(Ticket).delete()
+            db.commit()
+            print("   Cleared. Re-seeding now...")
 
         # Build lookup maps: name → id
         priorities = {r.name: r.id for r in db.query(TicketPriority).all()}
@@ -239,4 +246,5 @@ def seed():
 
 
 if __name__ == "__main__":
-    seed()
+    force = "--force" in sys.argv
+    seed(force=force)
