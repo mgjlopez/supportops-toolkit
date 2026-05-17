@@ -256,7 +256,27 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 }
 .nav-item.active .nav-badge { background: rgba(79,142,247,.35); }
 
-/* Inline edit in detail modal */
+/* Sortable columns */
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { color: var(--text); }
+th.sortable.sort-asc::after  { content: ' ↑'; color: var(--accent); }
+th.sortable.sort-desc::after { content: ' ↓'; color: var(--accent); }
+
+/* Notes panel */
+.notes-panel { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 4px; }
+.note-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.note-item:last-child { border-bottom: none; }
+.note-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--accent2), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; flex-shrink: 0; margin-top: 1px; }
+.note-body { flex: 1; }
+.note-meta { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+.note-meta b { color: var(--text); font-weight: 600; }
+.note-text { font-size: 13px; line-height: 1.5; }
+.note-resolve { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; }
+.note-resolve-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--danger); margin-bottom: 6px; }
+.add-note-area { display: flex; gap: 8px; margin-top: 12px; align-items: flex-end; }
+.add-note-area textarea { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; resize: none; outline: none; font-family: var(--font); transition: border-color .15s; }
+.add-note-area textarea:focus { border-color: var(--accent); }
+
 .inline-edit-field { display: flex; align-items: center; gap: 6px; }
 .inline-select {
   padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
@@ -499,12 +519,28 @@ function TicketModal({ ticket, lookups, onClose, onSave }) {
 
 function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefresh }) {
   const toast = useToast();
-  const [ticket, setTicket] = useState(initialTicket);
+  const [ticket, setTicket]           = useState(initialTicket);
   const [editingStatus,   setEditingStatus]   = useState(false);
   const [editingAssignee, setEditingAssignee] = useState(false);
   const [draftStatus,   setDraftStatus]   = useState(initialTicket.status);
   const [draftAssignee, setDraftAssignee] = useState(initialTicket.assignee || '');
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [notes, setNotes]             = useState([]);
+  const [noteText, setNoteText]       = useState('');
+  const [addingNote, setAddingNote]   = useState(false);
+  const [resolving, setResolving]     = useState(false);
+  const [resolveNote, setResolveNote] = useState('');
+
+  useEffect(() => { loadNotes(); }, [ticket.id]);
+
+  async function loadNotes() {
+    try {
+      const full = await apiFetch(`/tickets/${ticket.id}`);
+      // Notes are ticket_events with event_type === 'note'
+      const noteEvents = (full.events || []).filter(e => e.event_type === 'note');
+      setNotes(noteEvents);
+    } catch(e) { console.error(e); }
+  }
 
   async function patchField(patch, label) {
     setSaving(true);
@@ -517,26 +553,53 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
     setSaving(false);
   }
 
-  async function saveStatus() {
-    await patchField({ status: draftStatus }, 'Status');
-    setEditingStatus(false);
+  async function saveStatus() { await patchField({ status: draftStatus }, 'Status'); setEditingStatus(false); }
+  async function saveAssignee() { await patchField({ assignee: draftAssignee || null }, 'Assignee'); setEditingAssignee(false); }
+
+  async function submitNote() {
+    if (!noteText.trim()) return;
+    setAddingNote(true);
+    try {
+      await apiFetch(`/tickets/${ticket.id}/events`, {
+        method: 'POST',
+        body: JSON.stringify({ event_type: 'note', message: noteText.trim() }),
+      });
+      setNoteText('');
+      toast('Note added', 'success');
+      await loadNotes();
+    } catch(err) { toast(err.message, 'error'); }
+    setAddingNote(false);
   }
 
-  async function saveAssignee() {
-    await patchField({ assignee: draftAssignee || null }, 'Assignee');
-    setEditingAssignee(false);
+  async function resolveTicket() {
+    if (!resolveNote.trim()) { toast('Please add a resolution note', 'error'); return; }
+    setSaving(true);
+    try {
+      // Post resolution note first, then patch status
+      await apiFetch(`/tickets/${ticket.id}/events`, {
+        method: 'POST',
+        body: JSON.stringify({ event_type: 'note', message: `[RESOLVED] ${resolveNote.trim()}` }),
+      });
+      const updated = await apiFetch(`/tickets/${ticket.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'resolved' }),
+      });
+      setTicket(updated);
+      setDraftStatus('resolved');
+      setResolving(false);
+      setResolveNote('');
+      await loadNotes();
+      onRefresh();
+      toast(`Ticket #${ticket.id} resolved`, 'success');
+    } catch(err) { toast(err.message, 'error'); }
+    setSaving(false);
   }
 
-  async function deleteTicket() {
-    if (!confirm('Delete this ticket?')) return;
-    await apiFetch(`/tickets/${ticket.id}`, { method: 'DELETE' });
-    toast(`Ticket #${ticket.id} deleted`, 'info');
-    onClose(); onRefresh();
-  }
+  const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
 
   return (
     <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="modal" style={{width:'620px'}}>
+      <div className="modal" style={{width:'640px'}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'16px',gap:'16px'}}>
           <div>
             <div style={{fontSize:'12px',fontFamily:'var(--mono)',color:'var(--muted)',marginBottom:'4px'}}>#{ticket.id}</div>
@@ -544,10 +607,38 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
           </div>
           <div style={{display:'flex',gap:'8px',flexShrink:0}}>
             <button className="btn btn-ghost btn-sm" onClick={() => { onClose(); onEdit(ticket); }}>Edit</button>
-            <button className="btn btn-danger btn-sm" onClick={deleteTicket}>Delete</button>
+            {!isResolved && (
+              <button
+                className="btn btn-sm"
+                style={{background:'rgba(52,211,153,.15)',color:'var(--success)',border:'1px solid rgba(52,211,153,.3)'}}
+                onClick={() => setResolving(r => !r)}
+              >✓ Resolve</button>
+            )}
             <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
           </div>
         </div>
+
+        {/* Resolve panel */}
+        {resolving && (
+          <div className="note-resolve" style={{marginBottom:'16px'}}>
+            <div className="note-resolve-label">Resolution Note (required)</div>
+            <textarea
+              className="form-input" style={{marginBottom:'10px',minHeight:'70px'}}
+              value={resolveNote} onChange={e=>setResolveNote(e.target.value)}
+              placeholder="Describe how the issue was resolved..."
+              autoFocus
+            />
+            <div style={{display:'flex',gap:'8px',justifyContent:'flex-end'}}>
+              <button className="btn btn-ghost btn-sm" onClick={()=>{setResolving(false);setResolveNote('');}}>Cancel</button>
+              <button
+                className="btn btn-sm" disabled={saving || !resolveNote.trim()}
+                style={{background:'var(--success)',color:'white',border:'none'}}
+                onClick={resolveTicket}
+              >{saving ? '…' : 'Confirm resolve'}</button>
+            </div>
+          </div>
+        )}
+
         <div className="detail-panel" style={{padding:0}}>
           <div className="detail-meta">
             <div className="detail-field"><div className="detail-field-label">Priority</div><div className="detail-field-value"><PriorityBadge p={ticket.priority}/></div></div>
@@ -581,11 +672,7 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
               <div className="detail-field-value">
                 {editingAssignee ? (
                   <div className="inline-edit-field">
-                    <input
-                      className="inline-select" style={{flex:1}}
-                      value={draftAssignee} onChange={e=>setDraftAssignee(e.target.value)}
-                      placeholder="username or team"
-                    />
+                    <input className="inline-select" style={{flex:1}} value={draftAssignee} onChange={e=>setDraftAssignee(e.target.value)} placeholder="username or team"/>
                     <button className="save-inline-btn" disabled={saving} onClick={saveAssignee}>{saving ? '…' : 'Save'}</button>
                     <button className="toast-close" onClick={()=>{setEditingAssignee(false);setDraftAssignee(ticket.assignee||'');}}>✕</button>
                   </div>
@@ -603,6 +690,7 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
             <div className="detail-field"><div className="detail-field-label">Created</div><div className="detail-field-value" style={{fontSize:'12px'}}>{fmt(ticket.created_at)}</div></div>
             <div className="detail-field"><div className="detail-field-label">Resolved</div><div className="detail-field-value" style={{fontSize:'12px'}}>{fmt(ticket.resolved_at)}</div></div>
           </div>
+
           {ticket.description && (
             <div style={{marginBottom:'20px',padding:'14px',background:'var(--bg)',borderRadius:'8px',fontSize:'13px',lineHeight:'1.6'}}>
               {ticket.description}
@@ -613,10 +701,12 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
               ⚠️ SLA Breached
             </div>
           )}
-          {ticket.events?.length > 0 && (
-            <div className="events-list">
+
+          {/* Audit trail (non-note events) */}
+          {ticket.events?.filter(e => e.event_type !== 'note').length > 0 && (
+            <div className="events-list" style={{marginBottom:'20px'}}>
               <div style={{fontSize:'12px',fontWeight:'600',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.4px',marginBottom:'12px'}}>Audit Trail</div>
-              {ticket.events.map(ev => (
+              {ticket.events.filter(e => e.event_type !== 'note').map(ev => (
                 <div className="event-item" key={ev.id}>
                   <div className="event-dot"/>
                   <div className="event-content">
@@ -628,6 +718,39 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
               ))}
             </div>
           )}
+
+          {/* Notes section */}
+          <div className="notes-panel">
+            <div style={{fontSize:'12px',fontWeight:'600',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.4px',marginBottom:'12px'}}>
+              Notes {notes.length > 0 && <span style={{color:'var(--accent)'}}>({notes.length})</span>}
+            </div>
+            {notes.length === 0 && (
+              <div style={{fontSize:'13px',color:'var(--muted)',marginBottom:'12px',fontStyle:'italic'}}>No notes yet — be the first to add one.</div>
+            )}
+            {notes.map(n => (
+              <div className="note-item" key={n.id}>
+                <div className="note-avatar">{initials(n.author || '?')}</div>
+                <div className="note-body">
+                  <div className="note-meta"><b>{n.author || 'System'}</b> · {fmt(n.created_at)}</div>
+                  <div className="note-text" style={n.message?.startsWith('[RESOLVED]') ? {color:'var(--success)',fontWeight:'500'} : {}}>
+                    {n.message}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div className="add-note-area">
+              <textarea
+                rows={2} value={noteText} onChange={e=>setNoteText(e.target.value)}
+                placeholder="Add a note..."
+                onKeyDown={e => { if (e.key==='Enter' && e.metaKey) submitNote(); }}
+              />
+              <button
+                className="btn btn-primary btn-sm" disabled={addingNote || !noteText.trim()} onClick={submitNote}
+                style={{flexShrink:0}}
+              >{addingNote ? '…' : 'Add'}</button>
+            </div>
+            <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'4px'}}>⌘+Enter to submit</div>
+          </div>
         </div>
       </div>
     </div>
@@ -647,7 +770,38 @@ function TicketList({ user, lookups, view, onTicketChange }) {
   const [selected, setSelected]   = useState(null);
   const [editing, setEditing]     = useState(null);
   const [creating, setCreating]   = useState(false);
+  const [sortCol, setSortCol]     = useState('');
+  const [sortDir, setSortDir]     = useState('asc');
   const limit = 20;
+
+  function toggleSort(col) {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('asc'); }
+    setPage(0);
+  }
+
+  function thClass(col) {
+    if (sortCol !== col) return 'sortable';
+    return `sortable sort-${sortDir}`;
+  }
+
+  // Client-side sort (API doesn't support order_by yet)
+  const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+  const STATUS_ORDER   = { escalated: 0, open: 1, in_progress: 2, resolved: 3, closed: 4 };
+
+  function sortedTickets(list) {
+    if (!sortCol) return list;
+    return [...list].sort((a, b) => {
+      let va, vb;
+      if (sortCol === 'priority') { va = PRIORITY_ORDER[a.priority] ?? 9; vb = PRIORITY_ORDER[b.priority] ?? 9; }
+      else if (sortCol === 'status') { va = STATUS_ORDER[a.status] ?? 9; vb = STATUS_ORDER[b.status] ?? 9; }
+      else if (sortCol === 'created_at') { va = new Date(a.created_at||0); vb = new Date(b.created_at||0); }
+      else { va = (a[sortCol]||'').toLowerCase(); vb = (b[sortCol]||'').toLowerCase(); }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ?  1 : -1;
+      return 0;
+    });
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -708,17 +862,17 @@ function TicketList({ user, lookups, view, onTicketChange }) {
             <table>
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Title</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                  <th>Category</th>
-                  <th>Assignee</th>
-                  <th>Created</th>
+                  <th onClick={()=>toggleSort('id')} className={thClass('id')}>#</th>
+                  <th onClick={()=>toggleSort('title')} className={thClass('title')}>Title</th>
+                  <th onClick={()=>toggleSort('priority')} className={thClass('priority')}>Priority</th>
+                  <th onClick={()=>toggleSort('status')} className={thClass('status')}>Status</th>
+                  <th onClick={()=>toggleSort('category')} className={thClass('category')}>Category</th>
+                  <th onClick={()=>toggleSort('assignee')} className={thClass('assignee')}>Assignee</th>
+                  <th onClick={()=>toggleSort('created_at')} className={thClass('created_at')}>Created</th>
                 </tr>
               </thead>
               <tbody>
-                {tickets.map(t => (
+                {sortedTickets(tickets).map(t => (
                   <tr key={t.id}>
                     <td><span className="ticket-id">#{t.id}</span></td>
                     <td>

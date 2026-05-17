@@ -126,6 +126,24 @@ def lookup_values(db: Session = Depends(get_db), current_user: User = Depends(ge
         "sources":    [r.name for r in db.query(TicketSource).all()],
     }
 
+@router.post("/{ticket_id}/events", status_code=201)
+def add_ticket_event(
+    ticket_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    ticket = db.get(Ticket, ticket_id)
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    event = TicketEvent(
+        ticket_id  = ticket_id,
+        event_type = body.get("event_type", "note"),
+        message    = body.get("message", ""),
+        author     = current_user.username
+    )
+    db.add(event); db.commit(); db.refresh(event)
+    return event
 
 @router.get("/{ticket_id}", response_model=TicketOut, summary="Get ticket detail")
 def get_ticket(

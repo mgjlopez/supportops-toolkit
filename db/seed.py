@@ -6,7 +6,8 @@ Tickets are generated with realistic distributions:
   - Statuses:   mix of open, in_progress, escalated, resolved, closed
   - Categories: spread across all types
   - Sources:    mostly manual, some auto
-  - Ages:       from 5 minutes old to 30 days old
+  - Ages:       from 5 minutes old to 36 hours old (yesterday → now)
+  - Assignees:  real users and teams from migrate.py
 
 Usage:
     docker compose exec api python db/seed.py
@@ -145,8 +146,8 @@ def seed():
         now = datetime.now(UTC)
 
         for i, tmpl in enumerate(TICKET_TEMPLATES):
-            # Spread tickets over the last 30 days
-            age_hours = random.uniform(0.1, 720)
+            # Spread tickets between 5 minutes ago and 36 hours ago (yesterday to now)
+            age_hours = random.uniform(0.08, 36)
             created_at = now - timedelta(hours=age_hours)
 
             # Pick a realistic status based on priority
@@ -155,14 +156,14 @@ def seed():
             # Resolved/closed tickets get a resolution timestamp
             resolved_at = None
             if status_name in ("resolved", "closed"):
-                resolve_delay = random.uniform(0.5, age_hours * 0.8)
+                resolve_delay = random.uniform(0.5, max(0.6, age_hours * 0.8))
                 resolved_at = created_at + timedelta(hours=resolve_delay)
 
             # Some tickets get escalated
-            escalated       = status_name == "escalated"
+            escalated        = status_name == "escalated"
             escalation_count = random.randint(1, 2) if escalated else 0
 
-            # SLA breached for old critical/high open tickets
+            # SLA breached for open tickets older than their SLA threshold
             sla_hours   = {"critical": 0.25, "high": 1, "medium": 4, "low": 24}
             sla_breached = (
                 status_name in ("open", "in_progress", "escalated")

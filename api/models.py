@@ -89,6 +89,7 @@ class Ticket(Base):
 class TicketEvent(Base):
     __tablename__ = "ticket_events"
     id         = Column(Integer, primary_key=True, index=True)
+    author     = Column(String(100), nullable=True)
     ticket_id  = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     event_type = Column(String(50), nullable=False)
     message    = Column(Text, nullable=True)
