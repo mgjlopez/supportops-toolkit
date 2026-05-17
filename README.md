@@ -270,7 +270,7 @@ This toolkit replicates patterns used in enterprise support environments (Servic
 - **Observability** — Prometheus metrics and Grafana dashboards like production environments use
 - **Docker fluency** — full stack runs with a single `docker compose up`
 
-I wrote this project to deepen my knowledge of Docker, Python, and infrastructure observability as part of my journey toward a remote Technical Support Engineer role.
+I wrote this project to deepen my knowledge of Docker, Python, and infrastructure observability as part of my continuing my journey as a Technical Support Engineer.
 
 ---
 
