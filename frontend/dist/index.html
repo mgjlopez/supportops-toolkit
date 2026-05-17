@@ -277,6 +277,55 @@ th.sortable.sort-desc::after { content: ' ↓'; color: var(--accent); }
 .add-note-area textarea { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; resize: none; outline: none; font-family: var(--font); transition: border-color .15s; }
 .add-note-area textarea:focus { border-color: var(--accent); }
 
+/* Profile page */
+.profile-wrap { max-width: 600px; }
+.profile-avatar-section {
+  display: flex; align-items: center; gap: 20px;
+  padding: 28px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 20px;
+}
+.profile-avatar {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700; color: white; flex-shrink: 0;
+}
+.profile-avatar-info { flex: 1; }
+.profile-name  { font-size: 20px; font-weight: 600; letter-spacing: -.3px; margin-bottom: 4px; }
+.profile-meta  { font-size: 13px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+.profile-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+  border-radius: 5px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+  background: rgba(79,142,247,.15); color: var(--accent);
+}
+.profile-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 16px; overflow: hidden;
+}
+.profile-section-title {
+  padding: 14px 20px; font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.profile-field {
+  display: flex; align-items: center; padding: 14px 20px;
+  border-bottom: 1px solid var(--border); gap: 16px;
+}
+.profile-field:last-child { border-bottom: none; }
+.profile-field-label { font-size: 12px; color: var(--muted); font-weight: 500; width: 120px; flex-shrink: 0; }
+.profile-field-value { flex: 1; font-size: 14px; }
+.profile-field-input {
+  flex: 1; padding: 7px 10px; border: 1px solid var(--accent);
+  border-radius: 7px; background: var(--bg); color: var(--text);
+  font-size: 14px; outline: none; font-family: var(--font);
+}
+.profile-edit-btn {
+  padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  cursor: pointer; transition: all .15s; flex-shrink: 0;
+}
+.profile-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 .inline-edit-field { display: flex; align-items: center; gap: 6px; }
 .inline-select {
   padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
@@ -924,6 +973,170 @@ function TicketList({ user, lookups, view, onTicketChange }) {
   );
 }
 
+// ── Profile Page ──────────────────────────────────────────────────────────────
+
+const TIMEZONES = [
+  "UTC","America/New_York","America/Chicago","America/Denver","America/Los_Angeles",
+  "America/Bogota","America/Lima","America/Santiago","America/Argentina/Buenos_Aires",
+  "America/Sao_Paulo","Europe/London","Europe/Madrid","Europe/Paris","Europe/Berlin",
+  "Europe/Rome","Europe/Amsterdam","Asia/Dubai","Asia/Kolkata","Asia/Bangkok",
+  "Asia/Singapore","Asia/Tokyo","Asia/Seoul","Australia/Sydney","Pacific/Auckland",
+];
+
+function ProfileField({ label, value, editable, editNode, onEdit, placeholder = '—' }) {
+  return (
+    <div className="profile-field">
+      <div className="profile-field-label">{label}</div>
+      {editable && editNode
+        ? editNode
+        : <div className={`profile-field-value${!value ? ' locked' : ''}`}>{value || placeholder}</div>
+      }
+      {editable && !editNode && onEdit && (
+        <button className="profile-edit-btn" onClick={onEdit}>Edit</button>
+      )}
+    </div>
+  );
+}
+
+function Profile({ user, onUserUpdate }) {
+  const toast   = useToast();
+  const isAdmin = user.role === 'admin';
+
+  // Full profile fetched from /auth/me (has phone + timezone)
+  const [profile, setProfile] = useState(null);
+  const [saving,  setSaving]  = useState(false);
+
+  // Editing state per field
+  const [editPhone, setEditPhone]     = useState(false);
+  const [editTz,    setEditTz]        = useState(false);
+  const [draftPhone, setDraftPhone]   = useState('');
+  const [draftTz,    setDraftTz]      = useState('UTC');
+
+  useEffect(() => {
+    apiFetch('/auth/me').then(p => {
+      setProfile(p);
+      setDraftPhone(p.phone || '');
+      setDraftTz(p.timezone || 'UTC');
+    }).catch(console.error);
+  }, []);
+
+  async function save(patch) {
+    setSaving(true);
+    try {
+      const updated = await apiFetch('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+      setProfile(updated);
+      // Also update localStorage so sidebar reflects changes
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      const merged = { ...stored, ...patch };
+      localStorage.setItem('user', JSON.stringify(merged));
+      onUserUpdate(merged);
+      toast('Profile updated', 'success');
+    } catch(err) { toast(err.message, 'error'); }
+    setSaving(false);
+  }
+
+  async function savePhone() {
+    await save({ phone: draftPhone || null });
+    setEditPhone(false);
+  }
+  async function saveTz() {
+    await save({ timezone: draftTz });
+    setEditTz(false);
+  }
+
+  if (!profile) return <div style={{padding:'40px',textAlign:'center'}}><span className="spinner"/></div>;
+
+  const email = profile.email || `${profile.username}@mlsupportops.com`;
+
+  return (
+    <div className="profile-wrap">
+      <div className="topbar">
+        <div className="page-title">My Profile</div>
+      </div>
+
+      {/* Avatar header */}
+      <div className="profile-avatar-section">
+        <div className="profile-avatar">{initials(profile.full_name || profile.username)}</div>
+        <div className="profile-avatar-info">
+          <div className="profile-name">{profile.full_name || profile.username}</div>
+          <div className="profile-meta">
+            <span>{email}</span>
+            <span className="profile-badge">{profile.role}</span>
+            {profile.team && <span style={{color:'var(--muted)'}}>📁 {profile.team}</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Identity — read-only for non-admins */}
+      <div className="profile-section">
+        <div className="profile-section-title">Identity {!isAdmin && <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>· contact an admin to change these</span>}</div>
+        <ProfileField label="Full name"  value={profile.full_name} />
+        <ProfileField label="Username"   value={profile.username}  />
+        <ProfileField label="Email"      value={email}             />
+        <ProfileField label="Team"       value={profile.team}      />
+        <ProfileField label="Role"       value={profile.role}      />
+      </div>
+
+      {/* Editable fields */}
+      <div className="profile-section">
+        <div className="profile-section-title">Preferences</div>
+
+        {/* Phone */}
+        <div className="profile-field">
+          <div className="profile-field-label">Phone</div>
+          {editPhone ? (
+            <>
+              <input
+                className="profile-field-input"
+                value={draftPhone} onChange={e => setDraftPhone(e.target.value)}
+                placeholder="+1 555 000 0000" autoFocus
+                onKeyDown={e => { if(e.key==='Enter') savePhone(); if(e.key==='Escape') setEditPhone(false); }}
+              />
+              <button className="save-inline-btn" disabled={saving} onClick={savePhone}>{saving ? '…' : 'Save'}</button>
+              <button className="toast-close" style={{marginLeft:'4px'}} onClick={() => { setEditPhone(false); setDraftPhone(profile.phone||''); }}>✕</button>
+            </>
+          ) : (
+            <>
+              <div className={`profile-field-value${!profile.phone ? ' locked' : ''}`}>{profile.phone || '—'}</div>
+              <button className="profile-edit-btn" onClick={() => setEditPhone(true)}>Edit</button>
+            </>
+          )}
+        </div>
+
+        {/* Timezone */}
+        <div className="profile-field">
+          <div className="profile-field-label">Timezone</div>
+          {editTz ? (
+            <>
+              <select
+                className="profile-field-input"
+                value={draftTz} onChange={e => setDraftTz(e.target.value)}
+              >
+                {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+              </select>
+              <button className="save-inline-btn" disabled={saving} onClick={saveTz}>{saving ? '…' : 'Save'}</button>
+              <button className="toast-close" style={{marginLeft:'4px'}} onClick={() => { setEditTz(false); setDraftTz(profile.timezone||'UTC'); }}>✕</button>
+            </>
+          ) : (
+            <>
+              <div className="profile-field-value">{profile.timezone || 'UTC'}</div>
+              <button className="profile-edit-btn" onClick={() => setEditTz(true)}>Edit</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Member since */}
+      <div style={{fontSize:'12px',color:'var(--muted)',textAlign:'right',marginTop:'8px'}}>
+        Account created {fmt(profile.created_at)}
+      </div>
+    </div>
+  );
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 function Dashboard({ user, lookups, onTicketChange }) {
@@ -998,10 +1211,7 @@ function App() {
   const [lookups, setLookups] = useState({});
   const [navCounts, setNavCounts] = useState({ all: null, mine: null, team: null });
 
-  useEffect(() => {
-    document.body.className = dark ? '' : 'light';
-  }, [dark]);
-
+  useEffect(() => { document.body.className = dark ? '' : 'light'; }, [dark]);
   useEffect(() => {
     if (user) {
       apiFetch('/tickets/lookup-values').then(setLookups).catch(console.error);
@@ -1012,19 +1222,17 @@ function App() {
   async function loadNavCounts() {
     if (!user) return;
     try {
-      const [all, mine, stats] = await Promise.all([
+      const [, , stats] = await Promise.all([
         apiFetch('/tickets?limit=1').catch(()=>[]),
         apiFetch(`/tickets?assignee=${encodeURIComponent(user.username)}&limit=1`).catch(()=>[]),
         apiFetch('/tickets/stats').catch(()=>null),
       ]);
-      // "all" count from stats, mine count from stats.my_tickets
       setNavCounts({
         all:  stats ? (stats.open + stats.in_progress + stats.escalated) : '?',
         mine: stats?.my_tickets ?? '?',
-        team: null, // team count loaded separately below
+        team: null,
       });
       if (user.team) {
-        // Team tickets: fetch with assignee=team name (the correct field for team-based filtering)
         const teamData = await apiFetch(`/tickets?limit=1000`).catch(()=>[]);
         const teamCount = Array.isArray(teamData)
           ? teamData.filter(t => t.team === user.team || t.assignee === user.team).length
@@ -1034,16 +1242,14 @@ function App() {
     } catch(e) { console.error(e); }
   }
 
-  function logout() {
-    localStorage.clear(); setUser(null);
-  }
+  function logout() { localStorage.clear(); setUser(null); }
 
   if (!user) return <Login onLogin={u => { setUser(u); }}/>;
 
   const nav = [
-    { id: 'dashboard', icon: '📊', label: 'Dashboard',      count: null },
-    { id: 'all',       icon: '🎫', label: 'All Tickets',    count: navCounts.all },
-    { id: 'mine',      icon: '👤', label: 'My Tickets',     count: navCounts.mine },
+    { id: 'dashboard', icon: '📊', label: 'Dashboard',     count: null },
+    { id: 'all',       icon: '🎫', label: 'All Tickets',   count: navCounts.all },
+    { id: 'mine',      icon: '👤', label: 'My Tickets',    count: navCounts.mine },
     ...(user.team ? [{ id: 'team', icon: '👥', label: 'Team Tickets', count: navCounts.team }] : []),
   ];
 
@@ -1064,12 +1270,18 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <div className="user-chip">
+          {/* User chip — clickable to go to profile */}
+          <div
+            className="user-chip" onClick={() => setView('profile')}
+            style={{cursor:'pointer', outline: view==='profile' ? `2px solid var(--accent)` : 'none'}}
+            title="View profile"
+          >
             <div className="avatar">{initials(user.full_name || user.username)}</div>
             <div className="user-info">
               <div className="user-name">{user.full_name || user.username}</div>
               <div className="user-team">{user.team || user.role}</div>
             </div>
+            <span style={{fontSize:'12px',color:'var(--muted)'}}>›</span>
           </div>
           <div style={{display:'flex',gap:'8px'}}>
             <button className="theme-btn" style={{flex:1}} onClick={() => setDark(d => !d)}>{dark ? '☀️ Light' : '🌙 Dark'}</button>
@@ -1080,6 +1292,7 @@ function App() {
       <main className="main">
         {view === 'dashboard' && <Dashboard user={user} lookups={lookups} onTicketChange={loadNavCounts}/>}
         {(view === 'all' || view === 'mine' || view === 'team') && <TicketList user={user} lookups={lookups} view={view} onTicketChange={loadNavCounts}/>}
+        {view === 'profile' && <Profile user={user} onUserUpdate={u => setUser(u)}/>}
       </main>
     </div>
     </ToastProvider>

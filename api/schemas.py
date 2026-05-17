@@ -11,6 +11,41 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, model_validator
 
 
+# ── User Schemas ──────────────────────────────────────────────────────────────
+
+class UserOut(BaseModel):
+    id:        int
+    username:  str
+    full_name: Optional[str]
+    email:     Optional[str]
+    phone:     Optional[str]
+    timezone:  Optional[str]
+    role:      str
+    team:      Optional[str] = None   # resolved from team_ref
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_team(cls, obj):
+        if hasattr(obj, "team_ref") and obj.team_ref:
+            obj.__dict__["team"] = obj.team_ref.name
+        return obj
+
+
+class UserProfileUpdate(BaseModel):
+    """Fields any user can edit on themselves."""
+    phone:    Optional[str] = Field(None, max_length=50)
+    timezone: Optional[str] = Field(None, max_length=100)
+
+
+class UserAdminUpdate(UserProfileUpdate):
+    """Extra fields only admins can edit."""
+    full_name: Optional[str] = Field(None, max_length=200)
+    email:     Optional[str] = Field(None, max_length=200)
+
+
 # ── Ticket Schemas ────────────────────────────────────────────────────────────
 
 class TicketCreate(BaseModel):
@@ -37,7 +72,6 @@ class TicketEventOut(BaseModel):
     id:         int
     event_type: str
     message:    Optional[str]
-    author:     Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

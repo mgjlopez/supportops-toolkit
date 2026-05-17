@@ -38,3 +38,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+/api/__pycache__
+api/__pycache__/schemas.cpython-314.pyc
+api/__pycache__/models.cpython-314.pyc
