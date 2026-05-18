@@ -53,7 +53,9 @@ class TicketCreate(BaseModel):
     description: Optional[str] = None
     priority:    str            = "medium"
     category:    str            = "other"
-    assignee:    Optional[str] = None
+    assignee:    Optional[str] = None        # legacy string, kept for automation
+    assignee_id: Optional[int] = None        # preferred: FK to users
+    team_id:     Optional[int] = None        # FK to teams
     reporter:    Optional[str] = None
     source:      str            = "manual"
 
@@ -65,6 +67,8 @@ class TicketUpdate(BaseModel):
     status:      Optional[str] = None
     category:    Optional[str] = None
     assignee:    Optional[str] = None
+    assignee_id: Optional[int] = None
+    team_id:     Optional[int] = None
     resolved_at: Optional[datetime] = None
 
 
@@ -72,6 +76,7 @@ class TicketEventOut(BaseModel):
     id:         int
     event_type: str
     message:    Optional[str]
+    author:     Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -82,6 +87,10 @@ class TicketOut(BaseModel):
     title:            str
     description:      Optional[str]
     assignee:         Optional[str]
+    assignee_id:      Optional[int] = None
+    assignee_name:    Optional[str] = None   # full_name of assignee_ref
+    team_id:          Optional[int] = None
+    team_name:        Optional[str] = None   # name of team_ref
     reporter:         Optional[str]
     escalated:        bool
     escalation_count: int
@@ -91,7 +100,6 @@ class TicketOut(BaseModel):
     resolved_at:      Optional[datetime]
     events:           List[TicketEventOut] = []
 
-    # These are populated by the validator below from the _ref relationships
     priority: Optional[str] = None
     status:   Optional[str] = None
     category: Optional[str] = None
@@ -102,15 +110,15 @@ class TicketOut(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def resolve_lookup_names(cls, obj):
-        """
-        When building from an ORM Ticket object, read the names from
-        the relationship objects instead of the raw FK integer columns.
-        """
         if hasattr(obj, "priority_ref"):
-            obj.__dict__["priority"] = obj.priority_ref.name if obj.priority_ref else None
-            obj.__dict__["status"]   = obj.status_ref.name   if obj.status_ref   else None
-            obj.__dict__["category"] = obj.category_ref.name if obj.category_ref else None
-            obj.__dict__["source"]   = obj.source_ref.name   if obj.source_ref   else None
+            obj.__dict__["priority"]      = obj.priority_ref.name  if obj.priority_ref  else None
+            obj.__dict__["status"]        = obj.status_ref.name    if obj.status_ref    else None
+            obj.__dict__["category"]      = obj.category_ref.name  if obj.category_ref  else None
+            obj.__dict__["source"]        = obj.source_ref.name    if obj.source_ref    else None
+            obj.__dict__["team_name"]     = obj.team_ref.name      if obj.team_ref      else None
+            obj.__dict__["assignee_name"] = (
+                obj.assignee_ref.full_name or obj.assignee_ref.username
+            ) if obj.assignee_ref else None
         return obj
 
 

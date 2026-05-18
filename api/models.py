@@ -68,7 +68,9 @@ class Ticket(Base):
     id               = Column(Integer, primary_key=True, index=True)
     title            = Column(String(255), nullable=False)
     description      = Column(Text, nullable=True)
-    assignee         = Column(String(100), nullable=True)
+    assignee         = Column(String(100), nullable=True)   # kept for automation/seed compat
+    assignee_id      = Column(Integer, ForeignKey("users.id"), nullable=True)
+    team_id          = Column(Integer, ForeignKey("teams.id"), nullable=True)
     reporter         = Column(String(100), nullable=True)
     escalated        = Column(Boolean, default=False)
     escalation_count = Column(Integer, default=0)
@@ -86,6 +88,8 @@ class Ticket(Base):
     status_ref   = relationship("TicketStatus",   back_populates="tickets")
     category_ref = relationship("TicketCategory", back_populates="tickets")
     source_ref   = relationship("TicketSource",   back_populates="tickets")
+    assignee_ref = relationship("User",  foreign_keys=[assignee_id])
+    team_ref     = relationship("Team",  foreign_keys=[team_id])
     events       = relationship("TicketEvent", back_populates="ticket", cascade="all, delete")
 
 

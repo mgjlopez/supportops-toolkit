@@ -474,24 +474,42 @@ function Login({ onLogin }) {
 function TicketModal({ ticket, lookups, onClose, onSave }) {
   const isEdit = !!ticket?.id;
   const toast  = useToast();
+
   const [form, setForm] = useState({
     title:       ticket?.title       || '',
     description: ticket?.description || '',
     priority:    ticket?.priority    || 'medium',
     category:    ticket?.category    || 'other',
     status:      ticket?.status      || 'open',
-    assignee:    ticket?.assignee    || '',
     source:      ticket?.source      || 'manual',
+    team_id:     ticket?.team_id     || '',
+    assignee_id: ticket?.assignee_id || '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
-  function set(k) { return e => setForm(f => ({...f, [k]: e.target.value})); }
+  // Members of the selected team
+  const teamMembers = (lookups.teams || []).find(t => t.id === Number(form.team_id))?.members || [];
+
+  function set(k) {
+    return e => {
+      const val = e.target.value;
+      setForm(f => {
+        // Changing team clears assignee
+        if (k === 'team_id') return { ...f, team_id: val, assignee_id: '' };
+        return { ...f, [k]: val };
+      });
+    };
+  }
 
   async function submit(e) {
     e.preventDefault(); setError(''); setLoading(true);
     try {
-      const payload = { ...form, assignee: form.assignee || undefined };
+      const payload = {
+        ...form,
+        team_id:     form.team_id     ? Number(form.team_id)     : null,
+        assignee_id: form.assignee_id ? Number(form.assignee_id) : null,
+      };
       if (isEdit) {
         await apiFetch(`/tickets/${ticket.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
         toast(`Ticket #${ticket.id} updated`, 'success');
@@ -532,6 +550,35 @@ function TicketModal({ ticket, lookups, onClose, onSave }) {
               </select>
             </div>
           </div>
+
+          {/* Team + Assignee cascading dropdowns */}
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Team</label>
+              <select className="form-input" value={form.team_id} onChange={set('team_id')}>
+                <option value="">— No team —</option>
+                {(lookups.teams || []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{color: !form.team_id ? 'var(--muted)' : undefined}}>
+                Assignee {!form.team_id && <span style={{fontWeight:400,fontSize:'11px'}}>(select a team first)</span>}
+              </label>
+              <select
+                className="form-input"
+                value={form.assignee_id}
+                onChange={set('assignee_id')}
+                disabled={!form.team_id}
+                style={{opacity: !form.team_id ? 0.4 : 1, cursor: !form.team_id ? 'not-allowed' : 'pointer'}}
+              >
+                <option value="">— Unassigned —</option>
+                {teamMembers.map(m => (
+                  <option key={m.id} value={m.id}>{m.full_name || m.username}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="form-row">
             {isEdit && (
               <div className="form-group">
@@ -541,10 +588,6 @@ function TicketModal({ ticket, lookups, onClose, onSave }) {
                 </select>
               </div>
             )}
-            <div className="form-group">
-              <label className="form-label">Assignee</label>
-              <input className="form-input" value={form.assignee} onChange={set('assignee')} placeholder="username or team"/>
-            </div>
             <div className="form-group">
               <label className="form-label">Source</label>
               <select className="form-input" value={form.source} onChange={set('source')}>
@@ -568,11 +611,13 @@ function TicketModal({ ticket, lookups, onClose, onSave }) {
 
 function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefresh }) {
   const toast = useToast();
-  const [ticket, setTicket]           = useState(initialTicket);
+  const [ticket, setTicket]                   = useState(initialTicket);
   const [editingStatus,   setEditingStatus]   = useState(false);
+  const [editingTeam,     setEditingTeam]     = useState(false);
   const [editingAssignee, setEditingAssignee] = useState(false);
-  const [draftStatus,   setDraftStatus]   = useState(initialTicket.status);
-  const [draftAssignee, setDraftAssignee] = useState(initialTicket.assignee || '');
+  const [draftStatus,     setDraftStatus]     = useState(initialTicket.status);
+  const [draftTeamId,     setDraftTeamId]     = useState(initialTicket.team_id     || '');
+  const [draftAssigneeId, setDraftAssigneeId] = useState(initialTicket.assignee_id || '');
   const [saving, setSaving]           = useState(false);
   const [notes, setNotes]             = useState([]);
   const [noteText, setNoteText]       = useState('');
@@ -580,6 +625,7 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
   const [resolving, setResolving]     = useState(false);
   const [resolveNote, setResolveNote] = useState('');
 
+  const draftTeamMembers = (lookups.teams || []).find(t => t.id === Number(draftTeamId))?.members || [];
   useEffect(() => { loadNotes(); }, [ticket.id]);
 
   async function loadNotes() {
@@ -603,7 +649,21 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
   }
 
   async function saveStatus() { await patchField({ status: draftStatus }, 'Status'); setEditingStatus(false); }
-  async function saveAssignee() { await patchField({ assignee: draftAssignee || null }, 'Assignee'); setEditingAssignee(false); }
+
+  async function saveTeam() {
+    await patchField({
+      team_id:     draftTeamId     ? Number(draftTeamId)     : null,
+      assignee_id: draftAssigneeId ? Number(draftAssigneeId) : null,
+    }, 'Team');
+    setEditingTeam(false); setEditingAssignee(false);
+  }
+
+  async function saveAssignee() {
+    await patchField({
+      assignee_id: draftAssigneeId ? Number(draftAssigneeId) : null,
+    }, 'Assignee');
+    setEditingAssignee(false);
+  }
 
   async function submitNote() {
     if (!noteText.trim()) return;
@@ -715,19 +775,50 @@ function TicketDetail({ ticket: initialTicket, lookups, onClose, onEdit, onRefre
 
             <div className="detail-field"><div className="detail-field-label">Category</div><div className="detail-field-value">{ticket.category}</div></div>
 
-            {/* Inline assignee edit */}
+            {/* Inline team edit */}
+            <div className="detail-field">
+              <div className="detail-field-label">Team</div>
+              <div className="detail-field-value">
+                {editingTeam ? (
+                  <div className="inline-edit-field">
+                    <select className="inline-select" value={draftTeamId} onChange={e => { setDraftTeamId(e.target.value); setDraftAssigneeId(''); }}>
+                      <option value="">— No team —</option>
+                      {(lookups.teams||[]).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <button className="save-inline-btn" disabled={saving} onClick={saveTeam}>{saving ? '…' : 'Save'}</button>
+                    <button className="toast-close" onClick={()=>{setEditingTeam(false);setDraftTeamId(ticket.team_id||'');setDraftAssigneeId(ticket.assignee_id||'');}}>✕</button>
+                  </div>
+                ) : (
+                  <div className="inline-edit-field" onClick={()=>setEditingTeam(true)} style={{cursor:'pointer',gap:'8px'}}>
+                    <span>{ticket.team_name || <span style={{color:'var(--muted)'}}>—</span>}</span>
+                    <span style={{fontSize:'10px',color:'var(--muted)'}}>✏️</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Inline assignee edit — cascades from team */}
             <div className="detail-field">
               <div className="detail-field-label">Assignee</div>
               <div className="detail-field-value">
                 {editingAssignee ? (
                   <div className="inline-edit-field">
-                    <input className="inline-select" style={{flex:1}} value={draftAssignee} onChange={e=>setDraftAssignee(e.target.value)} placeholder="username or team"/>
-                    <button className="save-inline-btn" disabled={saving} onClick={saveAssignee}>{saving ? '…' : 'Save'}</button>
-                    <button className="toast-close" onClick={()=>{setEditingAssignee(false);setDraftAssignee(ticket.assignee||'');}}>✕</button>
+                    <select
+                      className="inline-select" value={draftAssigneeId}
+                      onChange={e=>setDraftAssigneeId(e.target.value)}
+                      disabled={!draftTeamId}
+                      style={{opacity: !draftTeamId ? 0.4 : 1}}
+                    >
+                      <option value="">— Unassigned —</option>
+                      {draftTeamMembers.map(m => <option key={m.id} value={m.id}>{m.full_name || m.username}</option>)}
+                    </select>
+                    {!draftTeamId && <span style={{fontSize:'11px',color:'var(--muted)'}}>Set a team first</span>}
+                    <button className="save-inline-btn" disabled={saving || !draftTeamId} onClick={saveAssignee}>{saving ? '…' : 'Save'}</button>
+                    <button className="toast-close" onClick={()=>{setEditingAssignee(false);setDraftAssigneeId(ticket.assignee_id||'');}}>✕</button>
                   </div>
                 ) : (
-                  <div className="inline-edit-field" onClick={()=>setEditingAssignee(true)} style={{cursor:'pointer',gap:'8px'}}>
-                    <span>{ticket.assignee || <span style={{color:'var(--muted)'}}>—</span>}</span>
+                  <div className="inline-edit-field" onClick={()=>{ setDraftTeamId(ticket.team_id||''); setEditingAssignee(true); }} style={{cursor:'pointer',gap:'8px'}}>
+                    <span>{ticket.assignee_name || ticket.assignee || <span style={{color:'var(--muted)'}}>—</span>}</span>
                     <span style={{fontSize:'10px',color:'var(--muted)'}}>✏️</span>
                   </div>
                 )}
@@ -916,7 +1007,8 @@ function TicketList({ user, lookups, view, onTicketChange }) {
                   <th onClick={()=>toggleSort('priority')} className={thClass('priority')}>Priority</th>
                   <th onClick={()=>toggleSort('status')} className={thClass('status')}>Status</th>
                   <th onClick={()=>toggleSort('category')} className={thClass('category')}>Category</th>
-                  <th onClick={()=>toggleSort('assignee')} className={thClass('assignee')}>Assignee</th>
+                  <th onClick={()=>toggleSort('team_name')} className={thClass('team_name')}>Team</th>
+                  <th onClick={()=>toggleSort('assignee_name')} className={thClass('assignee_name')}>Assignee</th>
                   <th onClick={()=>toggleSort('created_at')} className={thClass('created_at')}>Created</th>
                 </tr>
               </thead>
@@ -931,7 +1023,8 @@ function TicketList({ user, lookups, view, onTicketChange }) {
                     <td><PriorityBadge p={t.priority}/></td>
                     <td><StatusBadge s={t.status}/></td>
                     <td style={{fontSize:'12px',color:'var(--muted)'}}>{t.category}</td>
-                    <td style={{fontSize:'12px'}}>{t.assignee || <span style={{color:'var(--muted)'}}>—</span>}</td>
+                    <td style={{fontSize:'12px',color:'var(--muted)'}}>{t.team_name || <span style={{color:'var(--border)'}}>—</span>}</td>
+                    <td style={{fontSize:'12px'}}>{t.assignee_name || t.assignee || <span style={{color:'var(--muted)'}}>—</span>}</td>
                     <td style={{fontSize:'11px',color:'var(--muted)',fontFamily:'var(--mono)'}}>{fmt(t.created_at)}</td>
                   </tr>
                 ))}

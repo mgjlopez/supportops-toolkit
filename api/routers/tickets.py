@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from api.auth import get_current_user
 from api.database import get_db
 from api.logger import get_logger
-from api.models import Ticket, TicketEvent, TicketPriority, TicketStatus, TicketCategory, TicketSource, User
+from api.models import Ticket, TicketEvent, TicketPriority, TicketStatus, TicketCategory, TicketSource, User, Team
 from api.schemas import TicketCreate, TicketUpdate, TicketOut
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
@@ -97,10 +97,20 @@ def create_ticket(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Resolve assignee string from assignee_id if provided
+    assignee_str = payload.assignee
+    if payload.assignee_id:
+        u = db.get(User, payload.assignee_id)
+        if not u:
+            raise HTTPException(400, f"User {payload.assignee_id} not found")
+        assignee_str = u.username
+
     ticket = Ticket(
         title       = payload.title,
         description = payload.description,
-        assignee    = payload.assignee,
+        assignee    = assignee_str,
+        assignee_id = payload.assignee_id,
+        team_id     = payload.team_id,
         reporter    = payload.reporter or current_user.username,
         priority_id = _lookup(db, TicketPriority, payload.priority, "priority"),
         status_id   = _lookup(db, TicketStatus,   "open",           "status"),
@@ -118,12 +128,24 @@ def create_ticket(
 
 @router.get("/lookup-values", summary="Get valid values for all dropdowns")
 def lookup_values(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Returns all valid dropdown values for the UI."""
+    """Returns all valid dropdown values for the UI, including teams with their members."""
+    teams = db.query(Team).all()
     return {
         "priorities": [r.name for r in db.query(TicketPriority).all()],
         "statuses":   [r.name for r in db.query(TicketStatus).all()],
         "categories": [r.name for r in db.query(TicketCategory).all()],
         "sources":    [r.name for r in db.query(TicketSource).all()],
+        "teams": [
+            {
+                "id":      t.id,
+                "name":    t.name,
+                "members": [
+                    {"id": u.id, "username": u.username, "full_name": u.full_name}
+                    for u in t.users if u.is_active
+                ],
+            }
+            for t in teams
+        ],
     }
 
 @router.post("/{ticket_id}/events", status_code=201)
@@ -181,6 +203,18 @@ def update_ticket(
         ticket.category_id = _lookup(db, TicketCategory, changes.pop("category"), "category")
     if "source" in changes:
         ticket.source_id = _lookup(db, TicketSource, changes.pop("source"), "source")
+    if "assignee_id" in changes:
+        aid = changes.pop("assignee_id")
+        ticket.assignee_id = aid
+        if aid:
+            u = db.get(User, aid)
+            if not u:
+                raise HTTPException(400, f"User {aid} not found")
+            ticket.assignee = u.username
+        else:
+            ticket.assignee = None
+    if "team_id" in changes:
+        ticket.team_id = changes.pop("team_id")
 
     for field, value in changes.items():
         setattr(ticket, field, value)
