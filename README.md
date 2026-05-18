@@ -177,6 +177,10 @@ A single-page React app is served by FastAPI at `/ui` — no build step or separ
 | eve.devops | pass123 | devops | agent |
 | frank.field | pass123 | field.support | agent |
 
+<img src="images/UI.png" width="700" alt="UI" />
+<img src="images/UI2.png" width="700" alt="UI2" />
+<img src="images/UI3.png" width="700" alt="UI3" />
+
 **Features:**
 
 - **Dashboard** — open/escalated/SLA-breached stats, recent tickets at a glance
@@ -213,6 +217,8 @@ GET    /metrics              Prometheus metrics endpoint
 ```
 
 ### Observability — Prometheus + Grafana
+
+<img src="images/UI.png" width="700" alt="UI" />
 
 The API exposes a `/metrics` endpoint that Prometheus scrapes every 15 seconds. Grafana reads from Prometheus and displays a pre-built dashboard with:
 
