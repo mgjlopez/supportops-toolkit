@@ -218,7 +218,7 @@ GET    /metrics              Prometheus metrics endpoint
 
 ### Observability — Prometheus + Grafana
 
-<img src="images/UI.png" width="700" alt="UI" />
+<img src="images/Grafana.png" width="700" alt="Grafana" />
 
 The API exposes a `/metrics` endpoint that Prometheus scrapes every 15 seconds. Grafana reads from Prometheus and displays a pre-built dashboard with:
 
