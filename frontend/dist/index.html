@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
 :root {
@@ -1232,23 +1233,179 @@ function Profile({ user, onUserUpdate }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
+// ── Chart helpers ─────────────────────────────────────────────────────────────
+
+const { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+        Legend, ResponsiveContainer, Cell, PieChart, Pie } = Recharts;
+
+const CHART_COLORS = {
+  accent:  '#4f8ef7',
+  accent2: '#a78bfa',
+  success: '#34d399',
+  danger:  '#f87171',
+  warning: '#fbbf24',
+  orange:  '#fb923c',
+  muted:   '#6b7280',
+};
+
+const PRIORITY_COLORS = {
+  critical: '#f87171',
+  high:     '#fb923c',
+  medium:   '#fbbf24',
+  low:      '#34d399',
+};
+
+function ChartCard({ title, subtitle, children, style }) {
+  return (
+    <div className="table-wrap" style={{ marginBottom: 20, padding: '20px 20px 12px', ...style }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
+        {subtitle && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{subtitle}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function TrendChart({ data }) {
+  if (!data?.length) return <div style={{color:'var(--muted)',fontSize:13,textAlign:'center',padding:'40px 0'}}>No data yet</div>;
+  const fmt = d => d.slice(5); // MM-DD
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <LineChart data={data} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+        <XAxis dataKey="day" tickFormatter={fmt} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+        <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} allowDecimals={false} />
+        <Tooltip
+          contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+          labelFormatter={v => `Date: ${v}`}
+        />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Line type="monotone" dataKey="total"    name="Total"    stroke={CHART_COLORS.accent}  strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="open"     name="Open"     stroke={CHART_COLORS.warning} strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="resolved" name="Resolved" stroke={CHART_COLORS.success} strokeWidth={2} dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function CategoryChart({ data }) {
+  if (!data?.length) return <div style={{color:'var(--muted)',fontSize:13,textAlign:'center',padding:'40px 0'}}>No data yet</div>;
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={data} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+        <XAxis dataKey="category" tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+        <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} allowDecimals={false} />
+        <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="open"     name="Open"     fill={CHART_COLORS.accent}  radius={[3,3,0,0]} />
+        <Bar dataKey="resolved" name="Resolved" fill={CHART_COLORS.success} radius={[3,3,0,0]} />
+        <Bar dataKey="escalated" name="Escalated" fill={CHART_COLORS.danger} radius={[3,3,0,0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function SLAChart({ data }) {
+  if (!data?.length) return <div style={{color:'var(--muted)',fontSize:13,textAlign:'center',padding:'40px 0'}}>No data yet</div>;
+  const formatted = data.map(d => ({
+    ...d,
+    compliance_pct: +(d.compliance_rate * 100).toFixed(1),
+  }));
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={formatted} margin={{ top: 4, right: 16, left: -8, bottom: 0 }} layout="vertical">
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+        <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+        <YAxis type="category" dataKey="priority" tick={{ fontSize: 11, fill: 'var(--muted)' }} width={55} />
+        <Tooltip
+          contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+          formatter={v => [`${v}%`, 'Compliance']}
+        />
+        <Bar dataKey="compliance_pct" name="Compliance %" radius={[0,3,3,0]}>
+          {formatted.map(d => (
+            <Cell key={d.priority} fill={
+              d.compliance_pct >= 90 ? CHART_COLORS.success :
+              d.compliance_pct >= 70 ? CHART_COLORS.warning :
+              CHART_COLORS.danger
+            } />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ResolutionChart({ data }) {
+  if (!data?.length) return <div style={{color:'var(--muted)',fontSize:13,textAlign:'center',padding:'40px 0'}}>No resolved tickets yet</div>;
+  const formatted = data.map(d => ({
+    ...d,
+    avg: +d.avg_resolution_hours,
+    min: +d.min_resolution_hours,
+    max: +d.max_resolution_hours,
+  }));
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={formatted} margin={{ top: 4, right: 16, left: -8, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+        <XAxis dataKey="priority" tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+        <YAxis tickFormatter={v => `${v}h`} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+        <Tooltip
+          contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+          formatter={(v, name) => [`${v}h`, name]}
+        />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="min" name="Min"     fill={CHART_COLORS.success} radius={[3,3,0,0]} />
+        <Bar dataKey="avg" name="Avg"     fill={CHART_COLORS.accent}  radius={[3,3,0,0]} />
+        <Bar dataKey="max" name="Max"     fill={CHART_COLORS.danger}  radius={[3,3,0,0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
 function Dashboard({ user, lookups, onTicketChange }) {
-  const [stats, setStats]   = useState(null);
-  const [recent, setRecent] = useState([]);
-  const [creating, setCreating] = useState(false);
+  const [stats,      setStats]      = useState(null);
+  const [recent,     setRecent]     = useState([]);
+  const [trend,      setTrend]      = useState([]);
+  const [summary,    setSummary]    = useState([]);
+  const [sla,        setSla]        = useState([]);
+  const [resolution, setResolution] = useState([]);
+  const [creating,   setCreating]   = useState(false);
+  const [trendDays,  setTrendDays]  = useState(7);
+  const [chartsLoading, setChartsLoading] = useState(true);
 
   useEffect(() => {
     apiFetch('/tickets/stats').then(setStats).catch(console.error);
     apiFetch('/tickets?limit=5').then(setRecent).catch(console.error);
+    loadCharts(trendDays);
   }, []);
 
+  async function loadCharts(days) {
+    setChartsLoading(true);
+    try {
+      const [t, s, slaData, res] = await Promise.all([
+        apiFetch(`/reports/trend?days=${days}`),
+        apiFetch('/reports/summary'),
+        apiFetch('/reports/sla'),
+        apiFetch('/reports/resolution'),
+      ]);
+      setTrend(t); setSummary(s); setSla(slaData); setResolution(res);
+    } catch(e) { console.error(e); }
+    setChartsLoading(false);
+  }
+
+  function changeDays(d) { setTrendDays(d); loadCharts(d); }
+
   const statCards = stats ? [
-    { label: 'Open',        value: stats.open,        color: 'var(--accent)',  sub: 'awaiting action' },
-    { label: 'In Progress', value: stats.in_progress,  color: 'var(--accent2)', sub: 'being worked on' },
-    { label: 'Escalated',   value: stats.escalated,   color: 'var(--danger)',  sub: 'needs attention' },
-    { label: 'SLA Breached',value: stats.sla_breached, color: 'var(--orange)', sub: 'past deadline' },
-    { label: 'Resolved',    value: stats.resolved,    color: 'var(--success)', sub: 'this period' },
-    { label: 'My Tickets',  value: stats.my_tickets,  color: 'var(--warning)', sub: 'assigned to me' },
+    { label: 'Open',         value: stats.open,         color: 'var(--accent)',  sub: 'awaiting action' },
+    { label: 'In Progress',  value: stats.in_progress,  color: 'var(--accent2)', sub: 'being worked on' },
+    { label: 'Escalated',    value: stats.escalated,    color: 'var(--danger)',  sub: 'needs attention' },
+    { label: 'SLA Breached', value: stats.sla_breached, color: 'var(--orange)',  sub: 'past deadline' },
+    { label: 'Resolved',     value: stats.resolved,     color: 'var(--success)', sub: 'this period' },
+    { label: 'My Tickets',   value: stats.my_tickets,   color: 'var(--warning)', sub: 'assigned to me' },
   ] : [];
 
   return (
@@ -1260,6 +1417,8 @@ function Dashboard({ user, lookups, onTicketChange }) {
         </div>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>+ New Ticket</button>
       </div>
+
+      {/* Stat cards */}
       <div className="stat-grid">
         {statCards.map(s => (
           <div className="stat-card" key={s.label}>
@@ -1269,7 +1428,46 @@ function Dashboard({ user, lookups, onTicketChange }) {
           </div>
         ))}
       </div>
-      <div className="table-wrap">
+
+      {/* Charts row 1: Trend + Category */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'0'}}>
+        <ChartCard
+          title="Ticket Volume Trend"
+          subtitle={
+            <span>
+              Last{' '}
+              {[7,14,30].map(d => (
+                <button key={d} onClick={() => changeDays(d)} style={{
+                  marginLeft: 6, padding: '1px 7px', borderRadius: 5, fontSize: 11,
+                  cursor: 'pointer', border: '1px solid var(--border)',
+                  background: trendDays===d ? 'var(--accent)' : 'transparent',
+                  color: trendDays===d ? 'white' : 'var(--muted)',
+                }}>{d}d</button>
+              ))}
+            </span>
+          }
+        >
+          {chartsLoading ? <div style={{textAlign:'center',padding:'60px 0'}}><span className="spinner"/></div> : <TrendChart data={trend}/>}
+        </ChartCard>
+
+        <ChartCard title="Tickets by Category" subtitle="Open · Resolved · Escalated breakdown">
+          {chartsLoading ? <div style={{textAlign:'center',padding:'60px 0'}}><span className="spinner"/></div> : <CategoryChart data={summary}/>}
+        </ChartCard>
+      </div>
+
+      {/* Charts row 2: SLA compliance + Resolution time */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginTop:'16px'}}>
+        <ChartCard title="SLA Compliance" subtitle="% of tickets resolved within SLA by priority">
+          {chartsLoading ? <div style={{textAlign:'center',padding:'60px 0'}}><span className="spinner"/></div> : <SLAChart data={sla}/>}
+        </ChartCard>
+
+        <ChartCard title="Resolution Time" subtitle="Min / Avg / Max hours to resolve by priority">
+          {chartsLoading ? <div style={{textAlign:'center',padding:'60px 0'}}><span className="spinner"/></div> : <ResolutionChart data={resolution}/>}
+        </ChartCard>
+      </div>
+
+      {/* Recent tickets */}
+      <div className="table-wrap" style={{marginTop:'16px'}}>
         <div className="table-header" style={{justifyContent:'space-between'}}>
           <span style={{fontWeight:'600',fontSize:'14px'}}>Recent Tickets</span>
         </div>
@@ -1288,8 +1486,15 @@ function Dashboard({ user, lookups, onTicketChange }) {
           </tbody>
         </table>
       </div>
+
       {creating && (
-        <TicketModal lookups={lookups} onClose={() => setCreating(false)} onSave={() => { setCreating(false); apiFetch('/tickets/stats').then(setStats); apiFetch('/tickets?limit=5').then(setRecent); onTicketChange?.(); }}/>
+        <TicketModal lookups={lookups} onClose={() => setCreating(false)} onSave={() => {
+          setCreating(false);
+          apiFetch('/tickets/stats').then(setStats);
+          apiFetch('/tickets?limit=5').then(setRecent);
+          loadCharts(trendDays);
+          onTicketChange?.();
+        }}/>
       )}
     </div>
   );

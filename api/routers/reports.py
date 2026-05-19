@@ -100,7 +100,27 @@ def resolution_report(db: Session = Depends(get_db)):
     return [dict(r) for r in rows]
 
 
-@router.get("/health-checks", summary="Recent health check log")
+@router.get("/trend", summary="Ticket volume by day (last N days)")
+def trend_report(days: int = 7, db: Session = Depends(get_db)):
+    """
+    Returns daily ticket creation counts for the last N days.
+    Used to render the volume trend chart in the dashboard.
+    """
+    sql = text("""
+        SELECT
+            CAST(t.created_at AS DATE)  AS day,
+            COUNT(*)                    AS total,
+            SUM(CASE WHEN s.name IN ('open','in_progress','escalated') THEN 1 ELSE 0 END) AS open,
+            SUM(CASE WHEN s.name IN ('resolved','closed')              THEN 1 ELSE 0 END) AS resolved
+        FROM tickets t
+        JOIN ticket_statuses s ON s.id = t.status_id
+        WHERE t.created_at >= DATEADD(DAY, -:days, GETUTCDATE())
+        GROUP BY CAST(t.created_at AS DATE)
+        ORDER BY day ASC
+    """)
+    rows = db.execute(sql, {"days": days}).mappings().all()
+    return [{"day": str(r["day"]), "total": r["total"], "open": r["open"], "resolved": r["resolved"]} for r in rows]
+
 def health_checks_report(limit: int = 50, db: Session = Depends(get_db)):
     """Returns the most recent health check results from the monitor."""
     sql = text("""
