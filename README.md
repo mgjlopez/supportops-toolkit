@@ -5,6 +5,11 @@
 ![SQL Server](https://img.shields.io/badge/SQL_Server-2025-red?logo=microsoftsqlserver)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Prometheus](https://img.shields.io/badge/prometheus-E6522C?logo=prometheus&logoColor=white)
+![pytest](https://img.shields.io/badge/tested%20with-pytest-0A9EDC?logo=pytest)
+![Last Commit](https://img.shields.io/github/last-commit/mgjlopez/supportops-toolkit)
+![Repo Size](https://img.shields.io/github/repo-size/mgjlopez/supportops-toolkit)
 
 > A production-style IT support automation system built with Python, FastAPI, SQL Server, Docker, and Grafana.  
 > Simulates real-world workflows: auto-ticketing, SLA escalation, health monitoring, and observability dashboards.
@@ -177,6 +182,10 @@ A single-page React app is served by FastAPI at `/ui` — no build step or separ
 | eve.devops | pass123 | devops | agent |
 | frank.field | pass123 | field.support | agent |
 
+<img src="images/UI.png" width="700" alt="UI" />
+<img src="images/UI2.png" width="700" alt="UI2" />
+<img src="images/UI3.png" width="700" alt="UI3" />
+
 **Features:**
 
 - **Dashboard** — open/escalated/SLA-breached stats, recent tickets at a glance
@@ -213,6 +222,8 @@ GET    /metrics              Prometheus metrics endpoint
 ```
 
 ### Observability — Prometheus + Grafana
+
+<img src="images/Grafana.png" width="700" alt="Grafana" />
 
 The API exposes a `/metrics` endpoint that Prometheus scrapes every 15 seconds. Grafana reads from Prometheus and displays a pre-built dashboard with:
 
