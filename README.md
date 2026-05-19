@@ -5,6 +5,11 @@
 ![SQL Server](https://img.shields.io/badge/SQL_Server-2025-red?logo=microsoftsqlserver)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Prometheus](https://img.shields.io/badge/prometheus-E6522C?logo=prometheus&logoColor=white)
+![pytest](https://img.shields.io/badge/tested%20with-pytest-0A9EDC?logo=pytest)
+![Last Commit](https://img.shields.io/github/last-commit/mgjlopez/supportops-toolkit)
+![Repo Size](https://img.shields.io/github/repo-size/mgjlopez/supportops-toolkit)
 
 > A production-style IT support automation system built with Python, FastAPI, SQL Server, Docker, and Grafana.  
 > Simulates real-world workflows: auto-ticketing, SLA escalation, health monitoring, and observability dashboards.
