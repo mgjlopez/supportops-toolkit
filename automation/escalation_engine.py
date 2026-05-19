@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from api.database import SessionLocal
 from api.logger import get_logger
 from api.models import Ticket, TicketEvent, TicketStatus
+from automation.slack_notifier import notify_sla_breach, notify_escalation
 
 log = get_logger(__name__)
 
@@ -58,6 +59,14 @@ def check_and_escalate():
                         "age_hours": round(age_hours, 2),
                         "sla_hours": sla_hours,
                     })
+                    notify_sla_breach(
+                        ticket_id  = ticket.id,
+                        title      = ticket.title,
+                        priority   = priority_name,
+                        age_hours  = age_hours,
+                        sla_hours  = sla_hours,
+                        assignee   = ticket.assignee,
+                    )
 
                 if not ticket.escalated and ticket.escalation_count < MAX_ESCALATIONS:
                     # Get escalated status ID
@@ -81,7 +90,14 @@ def check_and_escalate():
                         created_at = now,
                     ))
 
-                    _send_notification(ticket, priority_name)
+                    notify_escalation(
+                        ticket_id        = ticket.id,
+                        title            = ticket.title,
+                        priority         = priority_name,
+                        escalation_count = ticket.escalation_count,
+                        age_hours        = age_hours,
+                        assignee         = ticket.assignee,
+                    )
                     escalated_count += 1
                     log.info("Ticket escalated", extra={
                         "ticket_id":        ticket.id,
@@ -102,15 +118,6 @@ def check_and_escalate():
         db.close()
 
     return {"escalated": escalated_count, "breached": breached_count}
-
-
-def _send_notification(ticket: Ticket, priority_name: str):
-    log.info("Escalation notification", extra={
-        "ticket_id": ticket.id,
-        "title":     ticket.title[:60],
-        "priority":  priority_name,
-        "assignee":  ticket.assignee or "unassigned",
-    })
 
 
 if __name__ == "__main__":

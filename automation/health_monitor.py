@@ -11,6 +11,7 @@ from datetime import datetime, UTC
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from api.logger import get_logger
+from automation.slack_notifier import notify_new_ticket
 
 log = get_logger(__name__)
 
@@ -34,8 +35,16 @@ def _create_ticket(title: str, description: str, priority: str, category: str) -
             "reporter":    "health_monitor",
         }, timeout=10)
         if resp.status_code == 201:
-            tid = resp.json()["id"]
+            ticket = resp.json()
+            tid = ticket["id"]
             log.info("Auto-ticket created", extra={"ticket_id": tid, "title": title})
+            notify_new_ticket(
+                ticket_id = tid,
+                title     = title,
+                priority  = priority,
+                category  = category,
+                assignee  = ticket.get("assignee"),
+            )
             return tid
         log.warning("Ticket creation failed", extra={"status_code": resp.status_code})
     except Exception as e:
